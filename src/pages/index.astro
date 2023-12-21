@@ -1,0 +1,56 @@
+---
+import BaseHead from "../components/BaseHead.astro";
+import ItemCard from "../components/ItemCard.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import { SITE_TITLE, SITE_DESCRIPTION } from "../consts";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+  </head>
+  <body>
+    <Header title={SITE_TITLE} />
+    <main>
+      <h1>Queridos Reyes Magos 🤴🏿🤴🏼🤴🏻</h1>
+      <h4>
+        Este año me he portado bien, he aprendido mucho y Hacienda me ha crujido
+        mucho (como a todos) así que aquí dejo una lista de ideas de regalo de
+        las que sólo se podrá elegir UNO ☝🏻
+      </h4>
+
+      <ul>
+        <li class="elemento-carta">Una herramienta para el Skate (T) 🛠</li>
+        <li class="elemento-carta">Unas gafas de ski 🥽</li>
+        <li class="elemento-carta">Turron blando 🍫</li>
+        <li class="elemento-carta">Branding Method (libro) 📖</li>
+        <li class="elemento-carta">El Hombre Iluminado (libro) 📖</li>
+        <li class="elemento-carta">
+          Yumi y el pintor de pesadillas (libro) 📖
+        </li>
+        <li class="elemento-carta">La guía del mago frugal (libro) 📖</li>
+      </ul>
+    </main>
+    <Footer />
+    <style>
+      ul {
+        list-style-type: none;
+        align-content: center;
+        width: 100%;
+        overflow-y: scroll;
+        box-shadow: 0 30px 40px rgba(0, 0, 0, 0.1);
+        max-height: 600px;
+      }
+      li.elemento-carta {
+        text-align: center;
+        background-color: rgba(214, 214, 214, 0.39);
+        padding: 1em;
+        margin: 1em;
+        border-radius: 10px;
+        border-color: black;
+      }
+    </style>
+  </body>
+</html>
