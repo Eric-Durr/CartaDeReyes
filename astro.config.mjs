@@ -5,6 +5,5 @@ import sitemap from "@astrojs/sitemap";
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://eric-durr.github.io",
-  base: "/CartaDeReyes",
+  site: "https://ericdeveloper.com",
 });
