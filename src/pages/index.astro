@@ -14,14 +14,15 @@ import { SITE_TITLE, SITE_DESCRIPTION } from "../consts";
 
       // Restaurar estado desde localStorage
       checkboxes.forEach((checkbox, index) => {
-        const key = `checklist-item-${index}`;
+        const input = checkbox as HTMLInputElement;
+        const key = input.dataset.id ?? "";
         const saved = localStorage.getItem(key);
         if (saved === "true") {
-          checkbox.checked = true;
+          input.checked = true;
         }
 
-        checkbox.addEventListener("change", () => {
-          localStorage.setItem(key, checkbox.checked);
+        input.addEventListener("change", () => {
+          localStorage.setItem(key, input.checked.toString());
         });
       });
     });
