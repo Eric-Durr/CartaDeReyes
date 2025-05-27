@@ -14,42 +14,103 @@ import { SITE_TITLE, SITE_DESCRIPTION } from "../consts";
   <body>
     <Header title={SITE_TITLE} />
     <main>
-      <h1>Queridos Reyes Magos 🤴🏿🤴🏼🤴🏻</h1>
-      <h4>
-        Este año me he portado bien, he aprendido mucho y Hacienda me ha crujido
-        mucho (como a todos) así que aquí dejo una lista de ideas de regalo de
-        las que sólo se podrá elegir UNO ☝🏻
-      </h4>
+      <h1>✅ Checklist Interactivo: Viaje a Madrid (3 días)</h1>
 
-      <ul>
-        <li class="elemento-carta">Una herramienta para el Skate (T) 🛠</li>
-        <li class="elemento-carta">Unas gafas de ski 🥽</li>
-        <li class="elemento-carta">Turron blando 🍫</li>
-        <li class="elemento-carta">Branding Method (libro) 📖</li>
-        <li class="elemento-carta">El Hombre Iluminado (libro) 📖</li>
-        <li class="elemento-carta">
-          Yumi y el pintor de pesadillas (libro) 📖
-        </li>
-        <li class="elemento-carta">La guía del mago frugal (libro) 📖</li>
-      </ul>
+      <div class="category">
+        <h2>� Ropa</h2>
+        <label><input type="checkbox" />3 camisetas o blusas ligeras</label>
+        <label><input type="checkbox" />1 camisa/blusa "casual chic"</label>
+        <label><input type="checkbox" />2 pantalones cortos o faldas</label>
+        <label><input type="checkbox" />1 pantalón largo ligero</label>
+        <label><input type="checkbox" />1 vestido o conjunto más formal</label>
+        <label><input type="checkbox" />3 mudas de ropa interior</label>
+        <label><input type="checkbox" />3 pares de calcetines finos</label>
+        <label><input type="checkbox" />1 pijama ligero</label>
+        <label><input type="checkbox" />1 bañador o bikini</label>
+        <label><input type="checkbox" />1 chaqueta fina o camisa larga</label>
+      </div>
+
+      <div class="category">
+        <h2>� Calzado</h2>
+        <label><input type="checkbox" />1 par de sandalias cómodas</label>
+        <label><input type="checkbox" />1 par de zapatillas transpirables</label
+        >
+      </div>
+
+      <div class="category">
+        <h2>� Aseo personal</h2>
+        <label><input type="checkbox" />Cepillo de dientes + pasta</label>
+        <label><input type="checkbox" />Desodorante</label>
+        <label><input type="checkbox" />Protector solar SPF 30+</label>
+        <label><input type="checkbox" />Crema hidratante ligera</label>
+        <label><input type="checkbox" />Gel/champú</label>
+        <label><input type="checkbox" />Peine pequeño</label>
+        <label><input type="checkbox" />Pinzas, coleteros, horquillas</label>
+        <label><input type="checkbox" />Maquillaje básico</label>
+        <label><input type="checkbox" />Toallitas húmedas y pañuelos</label>
+        <label><input type="checkbox" />Maquinilla de afeitar</label>
+        <label><input type="checkbox" />Tapones para los oídos</label>
+      </div>
+
+      <div class="category">
+        <h2>� Extras para el calor</h2>
+        <label><input type="checkbox" />Gafas de sol</label>
+        <label><input type="checkbox" />Sombrero, gorra o pañuelo</label>
+        <label><input type="checkbox" />Abanico o mini ventilador USB</label>
+        <label><input type="checkbox" />Botella de agua reutilizable</label>
+      </div>
+
+      <div class="category">
+        <h2>� Electrónica</h2>
+        <label><input type="checkbox" />Móvil</label>
+        <label><input type="checkbox" />Cargador de móvil</label>
+        <label><input type="checkbox" />Powerbank</label>
+        <label><input type="checkbox" />Auriculares</label>
+        <label><input type="checkbox" />Adaptador USB</label>
+        <label><input type="checkbox" />Tarjeta de embarque y reserva</label>
+      </div>
+
+      <div class="category">
+        <h2>� Documentación y dinero</h2>
+        <label><input type="checkbox" />DNI o pasaporte</label>
+        <label><input type="checkbox" />Tarjeta sanitaria o seguro</label>
+        <label><input type="checkbox" />Tarjetas de crédito/débito</label>
+        <label><input type="checkbox" />Algo de efectivo</label>
+        <label><input type="checkbox" />Reserva del hotel impresa</label>
+        <label><input type="checkbox" />Itinerario de viaje</label>
+      </div>
+
+      <div class="category">
+        <h2>� Bolso o mochila de mano</h2>
+        <label><input type="checkbox" />Libro/Kindle</label>
+        <label><input type="checkbox" />Snacks</label>
+        <label><input type="checkbox" />Mascarilla</label>
+        <label><input type="checkbox" />Gel hidroalcohólico</label>
+        <label><input type="checkbox" />Paraguas plegable</label>
+        <label><input type="checkbox" />Bolígrafo</label>
+      </div>
     </main>
     <Footer />
     <style>
-      ul {
-        list-style-type: none;
-        align-content: center;
-        width: 100%;
-        overflow-y: scroll;
-        box-shadow: 0 30px 40px rgba(0, 0, 0, 0.1);
-        max-height: 600px;
+      body {
+        font-family: Arial, sans-serif;
+        background: #f8f8f8;
+        padding: 2rem;
       }
-      li.elemento-carta {
-        text-align: center;
-        background-color: rgba(214, 214, 214, 0.39);
-        padding: 1em;
-        margin: 1em;
-        border-radius: 10px;
-        border-color: black;
+      h2 {
+        color: #333;
+        border-bottom: 2px solid #ccc;
+        padding-bottom: 0.5rem;
+      }
+      .category {
+        margin-bottom: 2rem;
+      }
+      label {
+        display: block;
+        margin-bottom: 0.3rem;
+      }
+      input[type="checkbox"] {
+        margin-right: 0.5rem;
       }
     </style>
   </body>
