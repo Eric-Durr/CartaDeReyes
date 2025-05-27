@@ -8,88 +8,182 @@ import { SITE_TITLE, SITE_DESCRIPTION } from "../consts";
 
 <!doctype html>
 <html lang="en">
-  <head>
-    <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
-  </head>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const checkboxes = document.querySelectorAll("input[type='checkbox']");
+
+      // Restaurar estado desde localStorage
+      checkboxes.forEach((checkbox, index) => {
+        const key = `checklist-item-${index}`;
+        const saved = localStorage.getItem(key);
+        if (saved === "true") {
+          checkbox.checked = true;
+        }
+
+        checkbox.addEventListener("change", () => {
+          localStorage.setItem(key, checkbox.checked);
+        });
+      });
+    });
+  </script>
+
+  <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+
   <body>
     <Header title={SITE_TITLE} />
-    <main>
-      <h1>✅ Checklist Interactivo: Viaje a Madrid (3 días)</h1>
+    <h1>✅ Checklist Interactivo: Viaje a Madrid (3 días)</h1>
 
-      <div class="category">
-        <h2>� Ropa</h2>
-        <label><input type="checkbox" />3 camisetas o blusas ligeras</label>
-        <label><input type="checkbox" />1 camisa/blusa "casual chic"</label>
-        <label><input type="checkbox" />2 pantalones cortos o faldas</label>
-        <label><input type="checkbox" />1 pantalón largo ligero</label>
-        <label><input type="checkbox" />1 vestido o conjunto más formal</label>
-        <label><input type="checkbox" />3 mudas de ropa interior</label>
-        <label><input type="checkbox" />3 pares de calcetines finos</label>
-        <label><input type="checkbox" />1 pijama ligero</label>
-        <label><input type="checkbox" />1 bañador o bikini</label>
-        <label><input type="checkbox" />1 chaqueta fina o camisa larga</label>
-      </div>
+    <div class="category">
+      <h2>� Ropa</h2>
+      <label
+        ><input type="checkbox" data-id="camisetas" />3 camisetas o blusas
+        ligeras</label
+      >
+      <label
+        ><input type="checkbox" data-id="camisa-chic" />1 camisa/blusa "casual
+        chic"</label
+      >
+      <label
+        ><input type="checkbox" data-id="pantalones-cortos" />2 pantalones
+        cortos o faldas</label
+      >
+      <label
+        ><input type="checkbox" data-id="pantalon-largo" />1 pantalón largo
+        ligero</label
+      >
+      <label
+        ><input type="checkbox" data-id="vestido" />1 vestido o conjunto más
+        formal</label
+      >
+      <label
+        ><input type="checkbox" data-id="ropa-interior" />3 mudas de ropa
+        interior</label
+      >
+      <label
+        ><input type="checkbox" data-id="calcetines" />3 pares de calcetines
+        finos</label
+      >
+      <label><input type="checkbox" data-id="pijama" />1 pijama ligero</label>
+      <label
+        ><input type="checkbox" data-id="banador" />1 bañador o bikini</label
+      >
+      <label
+        ><input type="checkbox" data-id="chaqueta-fina" />1 chaqueta fina o
+        camisa larga</label
+      >
+    </div>
 
-      <div class="category">
-        <h2>� Calzado</h2>
-        <label><input type="checkbox" />1 par de sandalias cómodas</label>
-        <label><input type="checkbox" />1 par de zapatillas transpirables</label
-        >
-      </div>
+    <div class="category">
+      <h2>� Calzado</h2>
+      <label
+        ><input type="checkbox" data-id="sandalias" />1 par de sandalias cómodas</label
+      >
+      <label
+        ><input type="checkbox" data-id="zapatillas" />1 par de zapatillas
+        transpirables</label
+      >
+    </div>
 
-      <div class="category">
-        <h2>� Aseo personal</h2>
-        <label><input type="checkbox" />Cepillo de dientes + pasta</label>
-        <label><input type="checkbox" />Desodorante</label>
-        <label><input type="checkbox" />Protector solar SPF 30+</label>
-        <label><input type="checkbox" />Crema hidratante ligera</label>
-        <label><input type="checkbox" />Gel/champú</label>
-        <label><input type="checkbox" />Peine pequeño</label>
-        <label><input type="checkbox" />Pinzas, coleteros, horquillas</label>
-        <label><input type="checkbox" />Maquillaje básico</label>
-        <label><input type="checkbox" />Toallitas húmedas y pañuelos</label>
-        <label><input type="checkbox" />Maquinilla de afeitar</label>
-        <label><input type="checkbox" />Tapones para los oídos</label>
-      </div>
+    <div class="category">
+      <h2>� Aseo personal</h2>
+      <label
+        ><input type="checkbox" data-id="cepillo" />Cepillo de dientes + pasta</label
+      >
+      <label><input type="checkbox" data-id="desodorante" />Desodorante</label>
+      <label
+        ><input type="checkbox" data-id="protector-solar" />Protector solar SPF
+        30+</label
+      >
+      <label
+        ><input type="checkbox" data-id="crema-hidratante" />Crema hidratante
+        ligera</label
+      >
+      <label><input type="checkbox" data-id="gel" />Gel/champú</label>
+      <label><input type="checkbox" data-id="peine" />Peine pequeño</label>
+      <label
+        ><input type="checkbox" data-id="pinzas" />Pinzas, coleteros, horquillas</label
+      >
+      <label
+        ><input type="checkbox" data-id="maquillaje" />Maquillaje básico</label
+      >
+      <label
+        ><input type="checkbox" data-id="toallitas" />Toallitas húmedas y
+        pañuelos</label
+      >
+      <label
+        ><input type="checkbox" data-id="afeitar" />Maquinilla de afeitar</label
+      >
+      <label
+        ><input type="checkbox" data-id="tapones" />Tapones para los oídos</label
+      >
+    </div>
 
-      <div class="category">
-        <h2>� Extras para el calor</h2>
-        <label><input type="checkbox" />Gafas de sol</label>
-        <label><input type="checkbox" />Sombrero, gorra o pañuelo</label>
-        <label><input type="checkbox" />Abanico o mini ventilador USB</label>
-        <label><input type="checkbox" />Botella de agua reutilizable</label>
-      </div>
+    <div class="category">
+      <h2>� Extras para el calor</h2>
+      <label><input type="checkbox" data-id="gafas-sol" />Gafas de sol</label>
+      <label
+        ><input type="checkbox" data-id="sombrero" />Sombrero, gorra o pañuelo</label
+      >
+      <label
+        ><input type="checkbox" data-id="abanico" />Abanico o mini ventilador
+        USB</label
+      >
+      <label
+        ><input type="checkbox" data-id="botella" />Botella de agua reutilizable</label
+      >
+    </div>
 
-      <div class="category">
-        <h2>� Electrónica</h2>
-        <label><input type="checkbox" />Móvil</label>
-        <label><input type="checkbox" />Cargador de móvil</label>
-        <label><input type="checkbox" />Powerbank</label>
-        <label><input type="checkbox" />Auriculares</label>
-        <label><input type="checkbox" />Adaptador USB</label>
-        <label><input type="checkbox" />Tarjeta de embarque y reserva</label>
-      </div>
+    <div class="category">
+      <h2>� Electrónica</h2>
+      <label><input type="checkbox" data-id="movil" />Móvil</label>
+      <label
+        ><input type="checkbox" data-id="cargador" />Cargador de móvil</label
+      >
+      <label><input type="checkbox" data-id="powerbank" />Powerbank</label>
+      <label><input type="checkbox" data-id="auriculares" />Auriculares</label>
+      <label
+        ><input type="checkbox" data-id="adaptador-usb" />Adaptador USB</label
+      >
+      <label
+        ><input type="checkbox" data-id="reserva" />Tarjeta de embarque y
+        reserva</label
+      >
+    </div>
 
-      <div class="category">
-        <h2>� Documentación y dinero</h2>
-        <label><input type="checkbox" />DNI o pasaporte</label>
-        <label><input type="checkbox" />Tarjeta sanitaria o seguro</label>
-        <label><input type="checkbox" />Tarjetas de crédito/débito</label>
-        <label><input type="checkbox" />Algo de efectivo</label>
-        <label><input type="checkbox" />Reserva del hotel impresa</label>
-        <label><input type="checkbox" />Itinerario de viaje</label>
-      </div>
+    <div class="category">
+      <h2>� Documentación y dinero</h2>
+      <label><input type="checkbox" data-id="dni" />DNI o pasaporte</label>
+      <label
+        ><input type="checkbox" data-id="seguro" />Tarjeta sanitaria o seguro</label
+      >
+      <label
+        ><input type="checkbox" data-id="tarjetas" />Tarjetas de crédito/débito</label
+      >
+      <label><input type="checkbox" data-id="efectivo" />Algo de efectivo</label
+      >
+      <label
+        ><input type="checkbox" data-id="reserva-hotel" />Reserva del hotel
+        impresa</label
+      >
+      <label
+        ><input type="checkbox" data-id="itinerario" />Itinerario de viaje</label
+      >
+    </div>
 
-      <div class="category">
-        <h2>� Bolso o mochila de mano</h2>
-        <label><input type="checkbox" />Libro/Kindle</label>
-        <label><input type="checkbox" />Snacks</label>
-        <label><input type="checkbox" />Mascarilla</label>
-        <label><input type="checkbox" />Gel hidroalcohólico</label>
-        <label><input type="checkbox" />Paraguas plegable</label>
-        <label><input type="checkbox" />Bolígrafo</label>
-      </div>
-    </main>
+    <div class="category">
+      <h2>� Bolso o mochila de mano</h2>
+      <label><input type="checkbox" data-id="libro" />Libro/Kindle</label>
+      <label><input type="checkbox" data-id="snacks" />Snacks</label>
+      <label><input type="checkbox" data-id="mascarilla" />Mascarilla</label>
+      <label
+        ><input type="checkbox" data-id="gel-hidro" />Gel hidroalcohólico</label
+      >
+      <label
+        ><input type="checkbox" data-id="paraguas" />Paraguas plegable</label
+      >
+      <label><input type="checkbox" data-id="boligrafo" />Bolígrafo</label>
+    </div>
+
     <Footer />
     <style>
       body {
