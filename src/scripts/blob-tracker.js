@@ -52,9 +52,14 @@ function initBlobTracker() {
   let streaming = false;
 
   // Matrices de OpenCV
+  let srcFull, dstFull;
   let src, dst, gray, mask, cap;
 
-  // Estado de parámetros (se actualiza con los sliders)
+  // Parámetros de rendimiento
+  const SCALE = 0.5; // resolución interna = 50% (ajustable)
+  const TARGET_FPS = 24; // objetivo de FPS (ajustable)
+
+  // Estado de parámetros (sliders + toggle)
   const params = {
     threshold: Number(thresholdSlider.value), // 0–255
     minArea: Number(minAreaSlider.value), // px^2
@@ -140,12 +145,13 @@ function initBlobTracker() {
     }
 
     try {
+      // Pedimos cámara trasera con buena resolución (iPhone la ajustará)
       stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: { ideal: "environment" }, // cámara trasera
-          width: { ideal: 3840 }, // prueba con 1920x1080
-          height: { ideal: 2160 },
-          frameRate: { ideal: 30, max: 60 }, // intenta 30–60 fps
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 }, // intenta 1080p
+          height: { ideal: 1080 },
+          frameRate: { ideal: 30, max: 60 },
         },
         audio: false,
       });
@@ -177,31 +183,45 @@ function initBlobTracker() {
       canvas.width = width;
       canvas.height = height;
 
+      // Resolución interna reducida
+      const sw = Math.max(1, Math.round(width * SCALE));
+      const sh = Math.max(1, Math.round(height * SCALE));
+
       // Inicializar OpenCV
       // @ts-ignore
       cap = new cv.VideoCapture(video);
+
+      // Full-res buffers (para lectura y escritura final)
       // @ts-ignore
-      src = new cv.Mat(height, width, cv.CV_8UC4);
+      srcFull = new cv.Mat(height, width, cv.CV_8UC4);
       // @ts-ignore
-      dst = new cv.Mat(height, width, cv.CV_8UC4);
+      dstFull = new cv.Mat(height, width, cv.CV_8UC4);
+
+      // Buffers escalados (trabajamos aquí)
       // @ts-ignore
-      gray = new cv.Mat(height, width, cv.CV_8UC1);
+      src = new cv.Mat(sh, sw, cv.CV_8UC4);
       // @ts-ignore
-      mask = new cv.Mat(height, width, cv.CV_8UC1);
+      dst = new cv.Mat(sh, sw, cv.CV_8UC4);
+      // @ts-ignore
+      gray = new cv.Mat(sh, sw, cv.CV_8UC1);
+      // @ts-ignore
+      mask = new cv.Mat(sh, sw, cv.CV_8UC1);
 
       streaming = true;
       status.textContent =
         "Cámara en marcha �. Ajusta los sliders para moldear la visual.";
 
-      // Vídeo sigue oculto; solo mostramos el canvas procesado
       canvas.classList.remove("hidden");
 
       console.log(
-        "[BlobTracker] Video size:",
+        "[BlobTracker] Video:",
         width,
         "x",
         height,
-        "- Mats inicializados con el mismo tamaño."
+        "| Interno:",
+        sw,
+        "x",
+        sh
       );
 
       requestAnimationFrame(processVideo);
@@ -217,10 +237,22 @@ function initBlobTracker() {
 
     const begin = performance.now();
 
+    // Leer frame a resolución completa
     // @ts-ignore
-    cap.read(src);
+    cap.read(srcFull);
 
-    // Escala de grises (luminosidad)
+    // Reescalar a resolución interna
+    // @ts-ignore
+    cv.resize(
+      srcFull,
+      src,
+      new cv.Size(src.cols, src.rows),
+      0,
+      0,
+      cv.INTER_AREA
+    );
+
+    // Escala de grises
     // @ts-ignore
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
     // Suavizado ligero
@@ -253,7 +285,7 @@ function initBlobTracker() {
       cv.CHAIN_APPROX_SIMPLE
     );
 
-    // Copiar frame original
+    // Copiar frame reducido a dst para dibujar encima
     // @ts-ignore
     src.copyTo(dst);
 
@@ -281,19 +313,12 @@ function initBlobTracker() {
       const cx = rect.x + rect.width / 2;
       const cy = rect.y + rect.height / 2;
 
-      // Intensidad media dentro del rectángulo
-      let sum = 0;
-      let count = 0;
-      for (let y = rect.y; y < rect.y + rect.height; y++) {
-        for (let x = rect.x; x < rect.x + rect.width; x++) {
-          if (x < 0 || x >= gray.cols || y < 0 || y >= gray.rows) continue;
-          // @ts-ignore
-          const val = gray.ucharPtr(y, x)[0];
-          sum += val;
-          count++;
-        }
-      }
-      const intensity = count > 0 ? sum / count : 0;
+      // Intensidad media dentro del ROI usando cv.mean (más eficiente)
+      const roiGray = gray.roi(rect);
+      // @ts-ignore
+      const meanScalar = cv.mean(roiGray);
+      const intensity = meanScalar[0];
+      roiGray.delete();
 
       blobs.push({
         x: rect.x,
@@ -322,7 +347,7 @@ function initBlobTracker() {
       const rh = Math.min(dst.rows - ry, b.h);
       if (rw <= 0 || rh <= 0) continue;
 
-      // ROI dentro de dst
+      // ROI dentro de dst reducido
       // @ts-ignore
       const rectCv = new cv.Rect(rx, ry, rw, rh);
       // @ts-ignore
@@ -393,7 +418,7 @@ function initBlobTracker() {
       );
     }
 
-    // Conectar blobs con líneas blancas (grafo)
+    // Conectar blobs con líneas blancas (grafo) en resolución reducida
     const K = Math.max(1, params.neighbors | 0);
     for (let i = 0; i < selected.length; i++) {
       const a = selected[i];
@@ -424,11 +449,23 @@ function initBlobTracker() {
       }
     }
 
-    // Mostrar resultado
+    // Reescalar resultado a resolución completa para pintar en canvas
     // @ts-ignore
-    cv.imshow("canvasOutput", dst);
+    cv.resize(
+      dst,
+      dstFull,
+      new cv.Size(srcFull.cols, srcFull.rows),
+      0,
+      0,
+      cv.INTER_NEAREST
+    );
 
-    const delay = 1000 / 30 - (performance.now() - begin);
+    // Mostrar
+    // @ts-ignore
+    cv.imshow("canvasOutput", dstFull);
+
+    const elapsed = performance.now() - begin;
+    const delay = 1000 / TARGET_FPS - elapsed;
     setTimeout(
       () => requestAnimationFrame(processVideo),
       delay > 0 ? delay : 0
@@ -441,13 +478,15 @@ function initBlobTracker() {
       stream.getTracks().forEach((t) => t.stop());
       stream = null;
     }
+    if (srcFull) srcFull.delete();
+    if (dstFull) dstFull.delete();
     if (src) src.delete();
     if (dst) dst.delete();
     if (gray) gray.delete();
     if (mask) mask.delete();
   }
 
-  // --- FULLSCREEN con prefijos ---
+  // --- FULLSCREEN con prefijos + UX "solo visual" ---
 
   function enterFullscreen(el) {
     if (el.requestFullscreen) {
@@ -466,6 +505,19 @@ function initBlobTracker() {
       document.webkitExitFullscreen();
     } else if (document.msExitFullscreen) {
       document.msExitFullscreen();
+    }
+  }
+
+  function syncFullscreenClass() {
+    const isFs =
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.msFullscreenElement;
+
+    if (isFs) {
+      document.body.classList.add("is-fullscreen");
+    } else {
+      document.body.classList.remove("is-fullscreen");
     }
   }
 
@@ -489,6 +541,10 @@ function initBlobTracker() {
   fullscreenButton.addEventListener("click", () => {
     toggleFullscreen();
   });
+
+  document.addEventListener("fullscreenchange", syncFullscreenClass);
+  document.addEventListener("webkitfullscreenchange", syncFullscreenClass);
+  document.addEventListener("msfullscreenchange", syncFullscreenClass);
 
   window.addEventListener("beforeunload", cleanup);
 }

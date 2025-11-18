@@ -322,6 +322,7 @@ import blobTrackerScript from "../scripts/blob-tracker.js?url";
   }
 
   /* Wrapper ocupa toda la pantalla en fullscreen */
+  /* Wrapper ocupa toda la pantalla en fullscreen, centrando el canvas */
   #videoWrapper:fullscreen,
   #videoWrapper:-webkit-full-screen {
     width: 100vw;
@@ -334,15 +335,35 @@ import blobTrackerScript from "../scripts/blob-tracker.js?url";
     display: flex;
     justify-content: center;
     align-items: center;
-    background: #000; /* negro puro para que las bandas se vean bien */
+    background: #000;
   }
 
-  /* El canvas escala manteniendo proporción */
+  /* El canvas escala manteniendo proporción, sin deformar */
   #videoWrapper:fullscreen .canvas,
   #videoWrapper:-webkit-full-screen .canvas {
     width: 100%;
     height: auto;
     max-height: 100%;
     display: block;
+  }
+
+  /* Modo "solo visual" cuando estamos en fullscreen: ocultar UI de texto */
+  body.is-fullscreen .blob-tracker h1,
+  body.is-fullscreen .blob-tracker .intro,
+  body.is-fullscreen .blob-tracker .controls,
+  body.is-fullscreen .blob-tracker .help {
+    display: none;
+  }
+
+  /* En pantallas pequeñas deja el panel siempre accesible arriba */
+  @media (max-width: 768px) {
+    .controls {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.96);
+      padding: 0.5rem 0.25rem;
+      backdrop-filter: blur(8px);
+    }
   }
 </style>
