@@ -56,8 +56,8 @@ function initBlobTracker() {
   let src, dst, gray, mask, cap;
 
   // Parámetros de rendimiento
-  const SCALE = 0.5; // resolución interna = 50% (ajustable)
-  const TARGET_FPS = 24; // objetivo de FPS (ajustable)
+  const SCALE = 1; // resolución interna = 50% (ajustable)
+  const TARGET_FPS = 30; // objetivo de FPS (ajustable)
 
   // Estado de parámetros (sliders + toggle)
   const params = {
