@@ -3,18 +3,45 @@
 function initBlobTracker() {
   const startButton = document.getElementById("startButton");
   const fullscreenButton = document.getElementById("fullscreenButton");
+  const invertToggle = document.getElementById("invertToggle");
   const status = document.getElementById("status");
   const video = document.getElementById("videoInput");
   const canvas = document.getElementById("canvasOutput");
   const wrapper = document.getElementById("videoWrapper");
 
+  const thresholdSlider = document.getElementById("thresholdSlider");
+  const thresholdValue = document.getElementById("thresholdValue");
+  const minAreaSlider = document.getElementById("minAreaSlider");
+  const minAreaValue = document.getElementById("minAreaValue");
+  const maxAreaSlider = document.getElementById("maxAreaSlider");
+  const maxAreaValue = document.getElementById("maxAreaValue");
+  const maxSideSlider = document.getElementById("maxSideSlider");
+  const maxSideValue = document.getElementById("maxSideValue");
+  const maxBlobsSlider = document.getElementById("maxBlobsSlider");
+  const maxBlobsValue = document.getElementById("maxBlobsValue");
+  const neighborsSlider = document.getElementById("neighborsSlider");
+  const neighborsValue = document.getElementById("neighborsValue");
+
   if (
     !startButton ||
+    !fullscreenButton ||
+    !invertToggle ||
     !status ||
     !video ||
     !canvas ||
     !wrapper ||
-    !fullscreenButton
+    !thresholdSlider ||
+    !thresholdValue ||
+    !minAreaSlider ||
+    !minAreaValue ||
+    !maxAreaSlider ||
+    !maxAreaValue ||
+    !maxSideSlider ||
+    !maxSideValue ||
+    !maxBlobsSlider ||
+    !maxBlobsValue ||
+    !neighborsSlider ||
+    !neighborsValue
   ) {
     console.warn("BlobTracker: elementos del DOM no encontrados");
     return;
@@ -26,6 +53,62 @@ function initBlobTracker() {
 
   // Matrices de OpenCV
   let src, dst, gray, mask, cap;
+
+  // Estado de parámetros (se actualiza con los sliders)
+  const params = {
+    threshold: Number(thresholdSlider.value), // 0–255
+    minArea: Number(minAreaSlider.value), // px^2
+    maxArea: Number(maxAreaSlider.value), // px^2
+    maxSide: Number(maxSideSlider.value), // px
+    maxBlobs: Number(maxBlobsSlider.value), // count
+    neighbors: Number(neighborsSlider.value), // conexiones por nodo
+    invertEnabled: /** @type {HTMLInputElement} */ (invertToggle).checked,
+  };
+
+  // Sincronizar textos iniciales
+  thresholdValue.textContent = params.threshold.toString();
+  minAreaValue.textContent = params.minArea.toString();
+  maxAreaValue.textContent = params.maxArea.toString();
+  maxSideValue.textContent = params.maxSide.toString();
+  maxBlobsValue.textContent = params.maxBlobs.toString();
+  neighborsValue.textContent = params.neighbors.toString();
+
+  // Listeners de sliders
+  thresholdSlider.addEventListener("input", () => {
+    params.threshold = Number(thresholdSlider.value);
+    thresholdValue.textContent = params.threshold.toString();
+  });
+
+  minAreaSlider.addEventListener("input", () => {
+    params.minArea = Number(minAreaSlider.value);
+    minAreaValue.textContent = params.minArea.toString();
+  });
+
+  maxAreaSlider.addEventListener("input", () => {
+    params.maxArea = Number(maxAreaSlider.value);
+    maxAreaValue.textContent = params.maxArea.toString();
+  });
+
+  maxSideSlider.addEventListener("input", () => {
+    params.maxSide = Number(maxSideSlider.value);
+    maxSideValue.textContent = params.maxSide.toString();
+  });
+
+  maxBlobsSlider.addEventListener("input", () => {
+    params.maxBlobs = Number(maxBlobsSlider.value);
+    maxBlobsValue.textContent = params.maxBlobs.toString();
+  });
+
+  neighborsSlider.addEventListener("input", () => {
+    params.neighbors = Number(neighborsSlider.value);
+    neighborsValue.textContent = params.neighbors.toString();
+  });
+
+  invertToggle.addEventListener("change", () => {
+    params.invertEnabled = /** @type {HTMLInputElement} */ (
+      invertToggle
+    ).checked;
+  });
 
   async function waitForOpenCV() {
     if (typeof window.cv === "undefined") {
@@ -84,7 +167,6 @@ function initBlobTracker() {
       const width = video.videoWidth;
       const height = video.videoHeight;
 
-      // Resolución interna del vídeo y canvas = resolución real
       video.width = width;
       video.height = height;
       canvas.width = width;
@@ -104,12 +186,9 @@ function initBlobTracker() {
 
       streaming = true;
       status.textContent =
-        "Cámara en marcha �. Detectando muchos picos de luz y conectándolos como una red.";
+        "Cámara en marcha �. Ajusta los sliders para moldear la visual.";
 
-      // El vídeo permanece oculto SIEMPRE (solo fuente interna)
-      // video.classList.remove("hidden");
-
-      // Solo mostramos el canvas procesado
+      // Vídeo sigue oculto; solo mostramos el canvas procesado
       canvas.classList.remove("hidden");
 
       console.log(
@@ -133,31 +212,29 @@ function initBlobTracker() {
 
     const begin = performance.now();
 
-    // Leer frame actual
     // @ts-ignore
     cap.read(src);
 
-    // Convertir a escala de grises (luminosidad)
+    // Escala de grises (luminosidad)
     // @ts-ignore
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-
-    // Suavizado muy ligero para mantener detalles pequeños
+    // Suavizado ligero
     // @ts-ignore
     cv.GaussianBlur(gray, gray, new cv.Size(3, 3), 0);
 
-    // Threshold para quedarnos con zonas brillantes
-    const THRESH = 200; // un poco más bajo → más puntos
+    // Threshold para zonas brillantes
+    const THRESH = params.threshold;
     // @ts-ignore
     cv.threshold(gray, mask, THRESH, 255, cv.THRESH_BINARY);
 
-    // Morfología suave: solo una pequeña dilatación para agrupar un poco
+    // Morfología suave
     // @ts-ignore
     const kernel = cv.Mat.ones(2, 2, cv.CV_8U);
     // @ts-ignore
     cv.dilate(mask, mask, kernel);
     kernel.delete();
 
-    // Buscar contornos
+    // Contornos
     // @ts-ignore
     const contours = new cv.MatVector();
     // @ts-ignore
@@ -171,25 +248,31 @@ function initBlobTracker() {
       cv.CHAIN_APPROX_SIMPLE
     );
 
-    // Copiamos frame original para dibujar encima
+    // Copiar frame original
     // @ts-ignore
     src.copyTo(dst);
 
     const blobs = [];
-    const MIN_AREA = 3; // más pequeño -> cuadros más pequeños
-    const MAX_BLOBS = 150; // más alto -> más cuadros
 
     for (let i = 0; i < contours.size(); i++) {
       const cnt = contours.get(i);
       // @ts-ignore
       const area = cv.contourArea(cnt);
-      if (area < MIN_AREA) {
+
+      if (area < params.minArea || area > params.maxArea) {
         cnt.delete();
         continue;
       }
 
       // @ts-ignore
       const rect = cv.boundingRect(cnt);
+
+      const maxSide = Math.max(rect.width, rect.height);
+      if (maxSide > params.maxSide) {
+        cnt.delete();
+        continue;
+      }
+
       const cx = rect.x + rect.width / 2;
       const cy = rect.y + rect.height / 2;
 
@@ -223,63 +306,61 @@ function initBlobTracker() {
     hierarchy.delete();
     contours.delete();
 
-    // Nos quedamos con los más brillantes
     blobs.sort((a, b) => b.intensity - a.intensity);
-    const selected = blobs.slice(0, MAX_BLOBS);
+    const selected = blobs.slice(0, params.maxBlobs);
 
-    // Dibujar rectángulos, NEGATIVO dentro, y número
+    // Dibujar cuadros y (opcionalmente) negativo interior
     for (const b of selected) {
-      // Proteger límites
       const rx = Math.max(0, b.x);
       const ry = Math.max(0, b.y);
       const rw = Math.min(dst.cols - rx, b.w);
       const rh = Math.min(dst.rows - ry, b.h);
       if (rw <= 0 || rh <= 0) continue;
 
-      // ROI del rectángulo dentro de dst
+      // ROI dentro de dst
       // @ts-ignore
       const rectCv = new cv.Rect(rx, ry, rw, rh);
       // @ts-ignore
       const roi = dst.roi(rectCv);
 
-      // � Invertimos SOLO RGB, manteniendo alfa
-      const rgbaPlanes = new cv.MatVector();
-      // @ts-ignore
-      cv.split(roi, rgbaPlanes);
+      if (params.invertEnabled) {
+        // Invertimos SOLO RGB, mantenemos alfa
+        const rgbaPlanes = new cv.MatVector();
+        // @ts-ignore
+        cv.split(roi, rgbaPlanes);
 
-      const r = rgbaPlanes.get(0);
-      const g = rgbaPlanes.get(1);
-      const bChan = rgbaPlanes.get(2);
-      const a = rgbaPlanes.get(3); // la dejamos igual
+        const r = rgbaPlanes.get(0);
+        const g = rgbaPlanes.get(1);
+        const bChan = rgbaPlanes.get(2);
+        const a = rgbaPlanes.get(3);
 
-      // invertimos solo R, G, B
-      // @ts-ignore
-      cv.bitwise_not(r, r);
-      // @ts-ignore
-      cv.bitwise_not(g, g);
-      // @ts-ignore
-      cv.bitwise_not(bChan, bChan);
+        // @ts-ignore
+        cv.bitwise_not(r, r);
+        // @ts-ignore
+        cv.bitwise_not(g, g);
+        // @ts-ignore
+        cv.bitwise_not(bChan, bChan);
 
-      const mergedPlanes = new cv.MatVector();
-      mergedPlanes.push_back(r);
-      mergedPlanes.push_back(g);
-      mergedPlanes.push_back(bChan);
-      mergedPlanes.push_back(a);
+        const mergedPlanes = new cv.MatVector();
+        mergedPlanes.push_back(r);
+        mergedPlanes.push_back(g);
+        mergedPlanes.push_back(bChan);
+        mergedPlanes.push_back(a);
 
-      // @ts-ignore
-      cv.merge(mergedPlanes, roi);
+        // @ts-ignore
+        cv.merge(mergedPlanes, roi);
 
-      // Limpiar memoria de canales
-      r.delete();
-      g.delete();
-      bChan.delete();
-      a.delete();
-      rgbaPlanes.delete();
-      mergedPlanes.delete();
+        r.delete();
+        g.delete();
+        bChan.delete();
+        a.delete();
+        rgbaPlanes.delete();
+        mergedPlanes.delete();
+      }
+
       roi.delete();
-      // rectCv es solo un descriptor, no necesita delete en OpenCV.js
 
-      // Rectángulo blanco alrededor del pico de luz
+      // Borde blanco
       // @ts-ignore
       cv.rectangle(
         dst,
@@ -289,7 +370,7 @@ function initBlobTracker() {
         1
       );
 
-      // Texto con intensidad
+      // Texto intensidad
       const text = Math.round(b.intensity).toString();
       const fontScale = 0.45;
       const thickness = 1;
@@ -307,8 +388,8 @@ function initBlobTracker() {
       );
     }
 
-    // Conectar blobs (grafo) con LÍNEAS BLANCAS
-    const K = 3;
+    // Conectar blobs con líneas blancas (grafo)
+    const K = Math.max(1, params.neighbors | 0);
     for (let i = 0; i < selected.length; i++) {
       const a = selected[i];
 
@@ -327,7 +408,6 @@ function initBlobTracker() {
 
       for (const n of toConnect) {
         const b = n.b;
-        // � líneas BLANCAS
         // @ts-ignore
         cv.line(
           dst,
@@ -362,19 +442,38 @@ function initBlobTracker() {
     if (mask) mask.delete();
   }
 
-  // --- LÓGICA DE PANTALLA COMPLETA ---
+  // --- FULLSCREEN con prefijos ---
+
+  function enterFullscreen(el) {
+    if (el.requestFullscreen) {
+      el.requestFullscreen();
+    } else if (el.webkitRequestFullscreen) {
+      el.webkitRequestFullscreen();
+    } else if (el.msRequestFullscreen) {
+      el.msRequestFullscreen();
+    }
+  }
+
+  function exitFullscreen() {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    }
+  }
 
   function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      if (wrapper.requestFullscreen) {
-        wrapper.requestFullscreen();
-      } else if (canvas.requestFullscreen) {
-        canvas.requestFullscreen();
-      }
+    const isFs =
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.msFullscreenElement;
+
+    if (!isFs) {
+      enterFullscreen(wrapper);
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
+      exitFullscreen();
     }
   }
 
