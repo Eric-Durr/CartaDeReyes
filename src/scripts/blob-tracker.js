@@ -21,6 +21,7 @@ function initBlobTracker() {
   const maxBlobsValue = document.getElementById("maxBlobsValue");
   const neighborsSlider = document.getElementById("neighborsSlider");
   const neighborsValue = document.getElementById("neighborsValue");
+  const toggleControlsButton = document.getElementById("toggleControlsButton");
 
   if (
     !startButton ||
@@ -41,7 +42,8 @@ function initBlobTracker() {
     !maxBlobsSlider ||
     !maxBlobsValue ||
     !neighborsSlider ||
-    !neighborsValue
+    !neighborsValue ||
+    !toggleControlsButton
   ) {
     console.warn("BlobTracker: elementos del DOM no encontrados");
     return;
@@ -133,6 +135,22 @@ function initBlobTracker() {
       window.cv = await window.cv;
     }
   }
+  // --- Colapsar / expandir panel de controles ---
+  let controlsVisible = true;
+
+  toggleControlsButton.addEventListener("click", () => {
+    controlsVisible = !controlsVisible;
+    const controlsEl = document.querySelector(".controls");
+    if (controlsEl) {
+      if (controlsVisible) {
+        controlsEl.classList.remove("controls--hidden");
+        toggleControlsButton.textContent = "Ocultar controles";
+      } else {
+        controlsEl.classList.add("controls--hidden");
+        toggleControlsButton.textContent = "Mostrar controles";
+      }
+    }
+  });
 
   async function startCamera() {
     if (streaming) return;
@@ -486,9 +504,9 @@ function initBlobTracker() {
     if (mask) mask.delete();
   }
 
-  // --- FULLSCREEN con prefijos + UX "solo visual" ---
+  // --- FULLSCREEN con prefijos + fallback móvil ---
 
-  function enterFullscreen(el) {
+  function enterFullscreenNative(el) {
     if (el.requestFullscreen) {
       el.requestFullscreen();
     } else if (el.webkitRequestFullscreen) {
@@ -498,7 +516,7 @@ function initBlobTracker() {
     }
   }
 
-  function exitFullscreen() {
+  function exitFullscreenNative() {
     if (document.exitFullscreen) {
       document.exitFullscreen();
     } else if (document.webkitExitFullscreen) {
@@ -508,12 +526,24 @@ function initBlobTracker() {
     }
   }
 
-  function syncFullscreenClass() {
-    const isFs =
+  function hasNativeFullscreen(el) {
+    return (
+      el.requestFullscreen ||
+      el.webkitRequestFullscreen ||
+      el.msRequestFullscreen
+    );
+  }
+
+  function isNativeFullscreenActive() {
+    return (
       document.fullscreenElement ||
       document.webkitFullscreenElement ||
-      document.msFullscreenElement;
+      document.msFullscreenElement
+    );
+  }
 
+  function syncFullscreenClass() {
+    const isFs = isNativeFullscreenActive();
     if (isFs) {
       document.body.classList.add("is-fullscreen");
     } else {
@@ -522,15 +552,23 @@ function initBlobTracker() {
   }
 
   function toggleFullscreen() {
-    const isFs =
-      document.fullscreenElement ||
-      document.webkitFullscreenElement ||
-      document.msFullscreenElement;
+    const supportsNative = hasNativeFullscreen(wrapper);
+    const isFsNative = isNativeFullscreenActive();
 
-    if (!isFs) {
-      enterFullscreen(wrapper);
+    if (supportsNative) {
+      // PC / navegadores que sí soportan fullscreen de elementos
+      if (!isFsNative) {
+        enterFullscreenNative(wrapper);
+      } else {
+        exitFullscreenNative();
+      }
     } else {
-      exitFullscreen();
+      // Fallback móvil: solo usamos la clase CSS is-fullscreen
+      const isFs = document.body.classList.toggle("is-fullscreen");
+      if (!isFs) {
+        // por si acaso dejamos la página limpia
+        document.body.classList.remove("is-fullscreen");
+      }
     }
   }
 
@@ -542,6 +580,7 @@ function initBlobTracker() {
     toggleFullscreen();
   });
 
+  // Para nativo: sincronizamos la clase cuando entra/sale fullscreen
   document.addEventListener("fullscreenchange", syncFullscreenClass);
   document.addEventListener("webkitfullscreenchange", syncFullscreenClass);
   document.addEventListener("msfullscreenchange", syncFullscreenClass);

@@ -9,7 +9,9 @@ import blobTrackerScript from "../scripts/blob-tracker.js?url";
     cuadros, los conecta como una red y te deja jugar con los parámetros para
     cambiar la estética.
   </p>
-
+  <button id="toggleControlsButton" class="secondary-button small-toggle">
+    Ocultar controles
+  </button>
   <div class="controls">
     <div class="controls-row">
       <button id="startButton" class="primary-button"> Iniciar cámara </button>
@@ -321,8 +323,7 @@ import blobTrackerScript from "../scripts/blob-tracker.js?url";
     margin-top: 0.35rem;
   }
 
-  /* Wrapper ocupa toda la pantalla en fullscreen */
-  /* Wrapper ocupa toda la pantalla en fullscreen, centrando el canvas */
+  /* Wrapper ocupa toda la pantalla en fullscreen nativo */
   #videoWrapper:fullscreen,
   #videoWrapper:-webkit-full-screen {
     width: 100vw;
@@ -338,7 +339,7 @@ import blobTrackerScript from "../scripts/blob-tracker.js?url";
     background: #000;
   }
 
-  /* El canvas escala manteniendo proporción, sin deformar */
+  /* Canvas mantiene proporción en fullscreen nativo */
   #videoWrapper:fullscreen .canvas,
   #videoWrapper:-webkit-full-screen .canvas {
     width: 100%;
@@ -347,7 +348,37 @@ import blobTrackerScript from "../scripts/blob-tracker.js?url";
     display: block;
   }
 
-  /* Modo "solo visual" cuando estamos en fullscreen: ocultar UI de texto */
+  /* Fallback fullscreen por CSS (móvil, cuando el API no existe) */
+  body.is-fullscreen {
+    margin: 0;
+    overflow: hidden;
+  }
+
+  body.is-fullscreen #videoWrapper {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    border: none;
+    z-index: 9999;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #000;
+  }
+
+  body.is-fullscreen #videoWrapper .canvas {
+    width: 100%;
+    height: auto;
+    max-height: 100%;
+    display: block;
+  }
+
+  /* En modo fullscreen (nativo o fallback) ocultamos textos y panel */
   body.is-fullscreen .blob-tracker h1,
   body.is-fullscreen .blob-tracker .intro,
   body.is-fullscreen .blob-tracker .controls,
@@ -355,7 +386,7 @@ import blobTrackerScript from "../scripts/blob-tracker.js?url";
     display: none;
   }
 
-  /* En pantallas pequeñas deja el panel siempre accesible arriba */
+  /* En móvil, panel pegado arriba como barra */
   @media (max-width: 768px) {
     .controls {
       position: sticky;
@@ -365,5 +396,16 @@ import blobTrackerScript from "../scripts/blob-tracker.js?url";
       padding: 0.5rem 0.25rem;
       backdrop-filter: blur(8px);
     }
+  }
+
+  .small-toggle {
+    margin-bottom: 0.5rem;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.8rem;
+    border-radius: 999px;
+  }
+
+  .controls.controls--hidden {
+    display: none;
   }
 </style>
