@@ -141,7 +141,12 @@ function initBlobTracker() {
 
     try {
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: {
+          facingMode: { ideal: "environment" }, // cámara trasera
+          width: { ideal: 3840 }, // prueba con 1920x1080
+          height: { ideal: 2160 },
+          frameRate: { ideal: 30, max: 60 }, // intenta 30–60 fps
+        },
         audio: false,
       });
 
