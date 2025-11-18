@@ -457,7 +457,7 @@ function initBlobTracker() {
       new cv.Size(srcFull.cols, srcFull.rows),
       0,
       0,
-      cv.INTER_NEAREST
+      cv.INTER_CUBIC
     );
 
     // Mostrar
