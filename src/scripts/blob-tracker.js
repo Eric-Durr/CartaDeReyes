@@ -22,6 +22,7 @@ function initBlobTracker() {
   const neighborsSlider = document.getElementById("neighborsSlider");
   const neighborsValue = document.getElementById("neighborsValue");
   const toggleControlsButton = document.getElementById("toggleControlsButton");
+  const exitFullscreenButton = document.getElementById("exitFullscreenButton");
 
   if (
     !startButton ||
@@ -43,7 +44,8 @@ function initBlobTracker() {
     !maxBlobsValue ||
     !neighborsSlider ||
     !neighborsValue ||
-    !toggleControlsButton
+    !toggleControlsButton ||
+    !exitFullscreenButton
   ) {
     console.warn("BlobTracker: elementos del DOM no encontrados");
     return;
@@ -584,7 +586,18 @@ function initBlobTracker() {
   document.addEventListener("fullscreenchange", syncFullscreenClass);
   document.addEventListener("webkitfullscreenchange", syncFullscreenClass);
   document.addEventListener("msfullscreenchange", syncFullscreenClass);
+  // Botón flotante "X" para salir de pantalla completa
+  exitFullscreenButton.addEventListener("click", () => {
+    const supportsNative = hasNativeFullscreen(wrapper);
+    const isFsNative = isNativeFullscreenActive();
 
+    if (supportsNative && isFsNative) {
+      exitFullscreenNative();
+    }
+
+    // Aseguramos que el modo fallback también se desactiva
+    document.body.classList.remove("is-fullscreen");
+  });
   window.addEventListener("beforeunload", cleanup);
 }
 

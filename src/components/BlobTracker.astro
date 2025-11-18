@@ -122,6 +122,14 @@ import blobTrackerScript from "../scripts/blob-tracker.js?url";
   <p id="status" class="status">Cargando OpenCV.js…</p>
 
   <div id="videoWrapper" class="video-wrapper">
+    <button
+      id="exitFullscreenButton"
+      class="fullscreen-exit-button"
+      aria-label="Salir de pantalla completa"
+    >
+      ✕
+    </button>
+
     <!-- Vídeo oculto, solo fuente -->
     <video id="videoInput" class="hidden" autoplay playsinline muted></video>
 
@@ -407,5 +415,33 @@ import blobTrackerScript from "../scripts/blob-tracker.js?url";
 
   .controls.controls--hidden {
     display: none;
+  }
+
+  .fullscreen-exit-button {
+    position: absolute;
+    top: 0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+    padding: 0.25rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.9);
+    background: rgba(15, 23, 42, 0.9);
+    color: #e5e7eb;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: none; /* por defecto oculto */
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+  }
+
+  .fullscreen-exit-button:hover {
+    filter: brightness(1.1);
+  }
+
+  /* Sólo se muestra en modo pantalla completa (nativo o fallback) */
+  body.is-fullscreen .fullscreen-exit-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 </style>
