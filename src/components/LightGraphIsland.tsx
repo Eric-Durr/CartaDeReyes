@@ -1,4 +1,6 @@
+/** @jsxImportSource react */
 // src/components/LightGraphIsland.tsx
+
 import React, { useEffect, useRef, useState } from "react";
 import type { LightGraphParams } from "../scripts/lightGraphTypes";
 import { createLightGraphProcessor } from "../scripts/lightGraphProcessor";
@@ -59,39 +61,36 @@ const LightGraphIsland: React.FC = () => {
         const wrapper = canvasRef.current?.parentElement;
         if (!wrapper) return;
 
+        // Casteamos a any para poder usar las variantes vendor
+        const anyWrapper = wrapper as any;
+        const docAny = document as any;
+
         const supportsNative =
-            !!wrapper.requestFullscreen ||
-            // @ts-ignore
-            !!wrapper.webkitRequestFullscreen ||
-            // @ts-ignore
-            !!wrapper.msRequestFullscreen;
+            !!anyWrapper.requestFullscreen ||
+            !!anyWrapper.webkitRequestFullscreen ||
+            !!anyWrapper.msRequestFullscreen;
 
         const isNativeFs =
             !!document.fullscreenElement ||
-            // @ts-ignore
-            !!document.webkitFullscreenElement ||
-            // @ts-ignore
-            !!document.msFullscreenElement;
+            !!docAny.webkitFullscreenElement ||
+            !!docAny.msFullscreenElement;
 
         if (supportsNative) {
             if (!isNativeFs) {
-                // @ts-ignore
-                (wrapper.requestFullscreen ||
-                    wrapper.webkitRequestFullscreen ||
-                    wrapper.msRequestFullscreen
-                ).call(wrapper);
+                const fn =
+                    anyWrapper.requestFullscreen ||
+                    anyWrapper.webkitRequestFullscreen ||
+                    anyWrapper.msRequestFullscreen;
+
+                fn.call(wrapper);
                 document.body.classList.add("is-fullscreen");
             } else {
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
-                    // @ts-ignore
-                } else if (document.webkitExitFullscreen) {
-                    // @ts-ignore
-                    document.webkitExitFullscreen();
-                    // @ts-ignore
-                } else if (document.msExitFullscreen) {
-                    // @ts-ignore
-                    document.msExitFullscreen();
+                } else if (docAny.webkitExitFullscreen) {
+                    docAny.webkitExitFullscreen();
+                } else if (docAny.msExitFullscreen) {
+                    docAny.msExitFullscreen();
                 }
                 document.body.classList.remove("is-fullscreen");
             }
