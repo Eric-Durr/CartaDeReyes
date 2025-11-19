@@ -4,6 +4,7 @@ import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import { SITE_TITLE, SITE_DESCRIPTION } from "../consts";
 import BlobTracker from "../components/BlobTracker.astro";
+import LightGraphIsland from "../components/LightGraphIsland";
 ---
 
 <!doctype html>
@@ -14,7 +15,7 @@ import BlobTracker from "../components/BlobTracker.astro";
     <Header title={SITE_TITLE} />
 
     <main>
-      <BlobTracker />
+      <LightGraphIsland client:load />
     </main>
 
     <Footer />
