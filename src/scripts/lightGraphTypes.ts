@@ -6,7 +6,7 @@ export interface LightGraphParams {
   maxBlobs: number; // máximo blobs a mostrar
   neighbors: number; // conexiones por nodo en el grafo
   invertEnabled: boolean; // interior en negativo o no
-  useHandMask: boolean;
+  useHandsMask: boolean;
 }
 
 export interface LightBlob {

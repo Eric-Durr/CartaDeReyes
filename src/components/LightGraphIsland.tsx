@@ -13,7 +13,7 @@ const defaultParams: LightGraphParams = {
     maxBlobs: 150,
     neighbors: 3,
     invertEnabled: true,
-    useHandMask: false,
+    useHandsMask: false,
 };
 
 const LightGraphIsland: React.FC = () => {

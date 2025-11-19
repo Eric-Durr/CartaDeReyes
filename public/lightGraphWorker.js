@@ -87,8 +87,8 @@ function processLightGraphFrame(src, dst, params) {
       cv.cvtColor(src, ycrcb, COLOR_RGBA2YCrCb);
 
       // Rango típico de piel en YCrCb
-      const lowerScalar = new cv.Scalar(0, 133, 77, 0);
-      const upperScalar = new cv.Scalar(255, 173, 127, 255);
+      const lowerScalar = new cv.Scalar(0, 140, 100, 0);
+      const upperScalar = new cv.Scalar(255, 170, 120, 255);
 
       // Esta build de OpenCV.js espera Mats, no Scalars, en inRange
 
@@ -107,7 +107,10 @@ function processLightGraphFrame(src, dst, params) {
 
       const skinMask = new cv.Mat();
       cv.inRange(ycrcb, lowerMat, upperMat, skinMask);
-
+      const kBig = cv.Mat.ones(5, 5, cv.CV_8U);
+      cv.erode(skinMask, skinMask, kBig);
+      cv.dilate(skinMask, skinMask, kBig);
+      kBig.delete();
       // Limpieza ligera
       const k2 = cv.Mat.ones(3, 3, cv.CV_8U);
       cv.morphologyEx(skinMask, skinMask, cv.MORPH_CLOSE, k2);
