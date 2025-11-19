@@ -58,24 +58,75 @@ function processLightGraphFrame(src, dst, params) {
   if (!src || !dst) return;
 
   const gray = new cv.Mat(src.rows, src.cols, cv.CV_8UC1);
-  const mask = new cv.Mat(src.rows, src.cols, cv.CV_8UC1);
+  let mask = new cv.Mat(src.rows, src.cols, cv.CV_8UC1);
 
   try {
-    // Escala de grises
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    // 1. Gris
+    const COLOR_RGBA2GRAY =
+      typeof cv.COLOR_RGBA2GRAY !== "undefined" ? cv.COLOR_RGBA2GRAY : 11; // fallback
 
-    // Suavizado
+    cv.cvtColor(src, gray, COLOR_RGBA2GRAY);
+
+    // 2. Suavizado
     cv.GaussianBlur(gray, gray, new cv.Size(3, 3), 0);
 
-    // Threshold para zonas brillantes
+    // 3. Threshold de brillo
     cv.threshold(gray, mask, params.threshold, 255, cv.THRESH_BINARY);
 
-    // Morfología suave
-    const kernel = cv.Mat.ones(2, 2, cv.CV_8U);
+    // 4. Morfología suave sobre brillo
+    let kernel = cv.Mat.ones(2, 2, cv.CV_8U);
     cv.dilate(mask, mask, kernel);
     kernel.delete();
 
-    // Contornos
+    // --- MODO MANOS: intersección con máscara de piel ---
+    if (params && params.useHandsMask) {
+      const ycrcb = new cv.Mat();
+      const COLOR_RGBA2YCrCb =
+        typeof cv.COLOR_RGBA2YCrCb !== "undefined" ? cv.COLOR_RGBA2YCrCb : 37; // fallback aproximado
+
+      cv.cvtColor(src, ycrcb, COLOR_RGBA2YCrCb);
+
+      // Rango típico de piel en YCrCb
+      const lowerScalar = new cv.Scalar(0, 133, 77, 0);
+      const upperScalar = new cv.Scalar(255, 173, 127, 255);
+
+      // Esta build de OpenCV.js espera Mats, no Scalars, en inRange
+
+      const lowerMat = new cv.Mat(
+        ycrcb.rows,
+        ycrcb.cols,
+        ycrcb.type(),
+        lowerScalar
+      );
+      const upperMat = new cv.Mat(
+        ycrcb.rows,
+        ycrcb.cols,
+        ycrcb.type(),
+        upperScalar
+      );
+
+      const skinMask = new cv.Mat();
+      cv.inRange(ycrcb, lowerMat, upperMat, skinMask);
+
+      // Limpieza ligera
+      const k2 = cv.Mat.ones(3, 3, cv.CV_8U);
+      cv.morphologyEx(skinMask, skinMask, cv.MORPH_CLOSE, k2);
+      k2.delete();
+
+      // mask = brillo ∧ piel
+      const combined = new cv.Mat();
+      cv.bitwise_and(mask, skinMask, combined);
+
+      mask.delete();
+      mask = combined;
+
+      ycrcb.delete();
+      skinMask.delete();
+      lowerMat.delete();
+      upperMat.delete();
+    }
+
+    // 5. Contornos
     const contours = new cv.MatVector();
     const hierarchy = new cv.Mat();
     cv.findContours(
@@ -86,7 +137,7 @@ function processLightGraphFrame(src, dst, params) {
       cv.CHAIN_APPROX_SIMPLE
     );
 
-    // Copiar frame original
+    // 6. Copiar original
     src.copyTo(dst);
 
     const blobs = [];
@@ -134,7 +185,7 @@ function processLightGraphFrame(src, dst, params) {
     blobs.sort((a, b) => b.intensity - a.intensity);
     const selected = blobs.slice(0, params.maxBlobs);
 
-    // Cuadros + negativo opcional + texto
+    // 8. Dibujar cuadros + negativo opcional
     for (const b of selected) {
       const rx = Math.max(0, b.x);
       const ry = Math.max(0, b.y);
@@ -176,7 +227,6 @@ function processLightGraphFrame(src, dst, params) {
 
       roi.delete();
 
-      // Borde blanco
       cv.rectangle(
         dst,
         new cv.Point(rx, ry),
@@ -185,7 +235,6 @@ function processLightGraphFrame(src, dst, params) {
         1
       );
 
-      // Texto de intensidad
       const text = Math.round(b.intensity).toString();
       const fontScale = 0.45;
       const thickness = 1;
@@ -202,7 +251,7 @@ function processLightGraphFrame(src, dst, params) {
       );
     }
 
-    // Grafo de conexiones
+    // 9. Grafo
     const K = Math.max(1, params.neighbors | 0);
     for (let i = 0; i < selected.length; i++) {
       const a = selected[i];

@@ -13,6 +13,7 @@ const defaultParams: LightGraphParams = {
     maxBlobs: 150,
     neighbors: 3,
     invertEnabled: true,
+    useHandMask: false,
 };
 
 const LightGraphIsland: React.FC = () => {
@@ -131,8 +132,10 @@ const LightGraphIsland: React.FC = () => {
     const updateParam =
         (key: keyof LightGraphParams) =>
             (e: React.ChangeEvent<HTMLInputElement>) => {
-                const value =
-                    key === "invertEnabled" ? e.target.checked : Number(e.target.value);
+                const isBooleanKey =
+                    key === "invertEnabled" || key === "useHandsMask";
+
+                const value = isBooleanKey ? e.target.checked : Number(e.target.value);
                 setParams((prev) => ({
                     ...prev,
                     [key]: value,
@@ -182,10 +185,20 @@ const LightGraphIsland: React.FC = () => {
                         <input
                             type="checkbox"
                             id="invertToggle"
-                            checked={params.invertEnabled}
+                            checked={!!params.invertEnabled}
                             onChange={updateParam("invertEnabled")}
                         />
                         <span>Interior en negativo</span>
+                    </label>
+
+                    <label className="toggle">
+                        <input
+                            type="checkbox"
+                            id="handsToggle"
+                            checked={!!params.useHandsMask}
+                            onChange={updateParam("useHandsMask")}
+                        />
+                        <span>Limitar a manos</span>
                     </label>
                 </div>
 
@@ -198,7 +211,7 @@ const LightGraphIsland: React.FC = () => {
                                     type="range"
                                     min={0}
                                     max={255}
-                                    value={params.threshold}
+                                    value={params.threshold ?? defaultParams.threshold}
                                     onChange={updateParam("threshold")}
                                 />
                                 <span>{params.threshold}</span>
@@ -214,7 +227,7 @@ const LightGraphIsland: React.FC = () => {
                                     type="range"
                                     min={1}
                                     max={50}
-                                    value={params.minArea}
+                                    value={params.minArea ?? defaultParams.minArea}
                                     onChange={updateParam("minArea")}
                                 />
                                 <span>{params.minArea}</span>
@@ -230,7 +243,7 @@ const LightGraphIsland: React.FC = () => {
                                     type="range"
                                     min={20}
                                     max={2000}
-                                    value={params.maxArea}
+                                    value={params.minArea ?? defaultParams.minArea}
                                     onChange={updateParam("maxArea")}
                                 />
                                 <span>{params.maxArea}</span>
@@ -246,7 +259,7 @@ const LightGraphIsland: React.FC = () => {
                                     type="range"
                                     min={10}
                                     max={200}
-                                    value={params.maxSide}
+                                    value={params.maxSide ?? defaultParams.maxSide}
                                     onChange={updateParam("maxSide")}
                                 />
                                 <span>{params.maxSide}</span>
@@ -262,7 +275,7 @@ const LightGraphIsland: React.FC = () => {
                                     type="range"
                                     min={10}
                                     max={300}
-                                    value={params.maxBlobs}
+                                    value={params.maxBlobs ?? defaultParams.maxBlobs}
                                     onChange={updateParam("maxBlobs")}
                                 />
                                 <span>{params.maxBlobs}</span>
@@ -278,7 +291,7 @@ const LightGraphIsland: React.FC = () => {
                                     type="range"
                                     min={1}
                                     max={8}
-                                    value={params.neighbors}
+                                    value={params.neighbors ?? defaultParams.neighbors}
                                     onChange={updateParam("neighbors")}
                                 />
                                 <span>{params.neighbors}</span>
