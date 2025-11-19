@@ -13,23 +13,19 @@ function waitForOpenCVInWorker() {
     const check = () => {
       const g = self;
 
-      // OpenCV todavía no ha enganchado nada
       if (typeof g.cv === "undefined") {
         setTimeout(check, 50);
         return;
       }
 
-      // Si cv es una Promesa (algunas builds modernas lo hacen)
       if (g.cv instanceof Promise) {
         g.cv
           .then((mod) => {
-            g.cv = mod; // guardamos el módulo real
-            // cuando el runtime está listo, Mat ya debería existir
+            g.cv = mod;
             if (typeof g.cv.Mat === "function") {
               cvReady = true;
               resolve();
             } else {
-              // si por lo que sea aún no, reintenta
               setTimeout(check, 50);
             }
           })
@@ -39,7 +35,6 @@ function waitForOpenCVInWorker() {
         return;
       }
 
-      // cv YA es el módulo real: esperamos a que Mat exista
       if (typeof g.cv.Mat === "function") {
         cvReady = true;
         resolve();
@@ -52,7 +47,7 @@ function waitForOpenCVInWorker() {
   });
 }
 
-// --- Núcleo de procesado: versión JS de processLightGraphFrame ---
+// --- Núcleo de procesado ---
 
 function processLightGraphFrame(src, dst, params) {
   if (!src || !dst) return;
@@ -63,15 +58,15 @@ function processLightGraphFrame(src, dst, params) {
   try {
     // 1. Gris
     const COLOR_RGBA2GRAY =
-      typeof cv.COLOR_RGBA2GRAY !== "undefined" ? cv.COLOR_RGBA2GRAY : 11; // fallback
-
+      typeof cv.COLOR_RGBA2GRAY !== "undefined" ? cv.COLOR_RGBA2GRAY : 11;
     cv.cvtColor(src, gray, COLOR_RGBA2GRAY);
 
     // 2. Suavizado
     cv.GaussianBlur(gray, gray, new cv.Size(3, 3), 0);
 
     // 3. Threshold de brillo
-    cv.threshold(gray, mask, params.threshold, 255, cv.THRESH_BINARY);
+    const thr = typeof params.threshold === "number" ? params.threshold : 200;
+    cv.threshold(gray, mask, thr, 255, cv.THRESH_BINARY);
 
     // 4. Morfología suave sobre brillo
     let kernel = cv.Mat.ones(2, 2, cv.CV_8U);
@@ -86,11 +81,9 @@ function processLightGraphFrame(src, dst, params) {
 
       cv.cvtColor(src, ycrcb, COLOR_RGBA2YCrCb);
 
-      // Rango típico de piel en YCrCb
+      // Rango de piel en YCrCb (ligeramente más estricto)
       const lowerScalar = new cv.Scalar(0, 140, 100, 0);
       const upperScalar = new cv.Scalar(255, 170, 120, 255);
-
-      // Esta build de OpenCV.js espera Mats, no Scalars, en inRange
 
       const lowerMat = new cv.Mat(
         ycrcb.rows,
@@ -107,21 +100,14 @@ function processLightGraphFrame(src, dst, params) {
 
       const skinMask = new cv.Mat();
       cv.inRange(ycrcb, lowerMat, upperMat, skinMask);
-      const kBig = cv.Mat.ones(5, 5, cv.CV_8U);
-      cv.erode(skinMask, skinMask, kBig);
-      cv.dilate(skinMask, skinMask, kBig);
-      kBig.delete();
-      // Limpieza ligera
+
+      // Limpieza ligera (quita manchas pequeñas)
       const k2 = cv.Mat.ones(3, 3, cv.CV_8U);
-      cv.morphologyEx(skinMask, skinMask, cv.MORPH_CLOSE, k2);
+      cv.morphologyEx(skinMask, skinMask, cv.MORPH_OPEN, k2);
       k2.delete();
 
-      // mask = brillo ∧ piel
-      const combined = new cv.Mat();
-      cv.bitwise_and(mask, skinMask, combined);
-
-      mask.delete();
-      mask = combined;
+      // mask = brillo ∧ piel (in-place)
+      cv.bitwise_and(mask, skinMask, mask);
 
       ycrcb.delete();
       skinMask.delete();
@@ -149,14 +135,20 @@ function processLightGraphFrame(src, dst, params) {
       const cnt = contours.get(i);
       const area = cv.contourArea(cnt);
 
-      if (area < params.minArea || area > params.maxArea) {
+      const minArea = typeof params.minArea === "number" ? params.minArea : 3;
+      const maxArea =
+        typeof params.maxArea === "number" ? params.maxArea : 2000;
+
+      if (area < minArea || area > maxArea) {
         cnt.delete();
         continue;
       }
 
       const rect = cv.boundingRect(cnt);
-      const maxSide = Math.max(rect.width, rect.height);
-      if (maxSide > params.maxSide) {
+      const maxSideRect = Math.max(rect.width, rect.height);
+      const maxSide = typeof params.maxSide === "number" ? params.maxSide : 60;
+
+      if (maxSideRect > maxSide) {
         cnt.delete();
         continue;
       }
@@ -186,7 +178,10 @@ function processLightGraphFrame(src, dst, params) {
     contours.delete();
 
     blobs.sort((a, b) => b.intensity - a.intensity);
-    const selected = blobs.slice(0, params.maxBlobs);
+
+    const maxBlobs =
+      typeof params.maxBlobs === "number" ? params.maxBlobs : 150;
+    const selected = blobs.slice(0, maxBlobs);
 
     // 8. Dibujar cuadros + negativo opcional
     for (const b of selected) {
@@ -255,7 +250,9 @@ function processLightGraphFrame(src, dst, params) {
     }
 
     // 9. Grafo
-    const K = Math.max(1, params.neighbors | 0);
+    const neigh = typeof params.neighbors === "number" ? params.neighbors : 3;
+    const K = Math.max(1, neigh | 0);
+
     for (let i = 0; i < selected.length; i++) {
       const a = selected[i];
 
@@ -301,7 +298,6 @@ self.addEventListener("message", async (event) => {
 
     await waitForOpenCVInWorker();
 
-    // � En este punto cv y cv.Mat deberían estar listos
     dst = new cv.Mat(height, width, cv.CV_8UC4);
 
     self.postMessage({ type: "ready" });
@@ -319,7 +315,11 @@ self.addEventListener("message", async (event) => {
 
     const src = cv.matFromImageData(imageData);
 
-    processLightGraphFrame(src, dst, params);
+    try {
+      processLightGraphFrame(src, dst, params);
+    } catch (err) {
+      console.error("[worker] Error en processLightGraphFrame:", err);
+    }
 
     src.delete();
 
