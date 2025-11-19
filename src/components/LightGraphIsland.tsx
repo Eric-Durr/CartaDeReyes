@@ -17,19 +17,24 @@ const LightGraphIsland: React.FC = () => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const processorRef = useRef<ReturnType<typeof createLightGraphProcessor> | null>(null);
+    const paramsRef = useRef<LightGraphParams>(defaultParams);
 
     const [params, setParams] = useState<LightGraphParams>(defaultParams);
     const [controlsVisible, setControlsVisible] = useState(true);
     const [status, setStatus] = useState("Cargando OpenCV.js…");
 
     // Inicializar processor cuando existan video + canvas
+
+    useEffect(() => {
+        paramsRef.current = params;
+    }, [params]);
     useEffect(() => {
         if (!videoRef.current || !canvasRef.current) return;
 
         processorRef.current = createLightGraphProcessor(
             videoRef.current,
             canvasRef.current,
-            () => params
+            () => paramsRef.current   // � siempre lee los últimos params
         );
 
         setStatus("Listo. Pulsa 'Iniciar cámara'.");
@@ -37,7 +42,7 @@ const LightGraphIsland: React.FC = () => {
         return () => {
             processorRef.current?.stop();
         };
-    }, [params]); // <- simplificación: si cambia params, el callback verá la versión nueva
+    }, []);
 
     const startCamera = async () => {
         try {
