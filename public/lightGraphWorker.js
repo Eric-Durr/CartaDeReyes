@@ -31,6 +31,11 @@ function waitForOpenCVInWorker() {
           })
           .catch((err) => {
             console.error("[worker] Error resolviendo cv Promise:", err);
+            self.postMessage({
+              type: "error",
+              message: "Error inicializando OpenCV en el worker",
+              detail: String(err),
+            });
           });
         return;
       }
@@ -113,6 +118,39 @@ function processLightGraphFrame(src, dst, params) {
       skinMask.delete();
       lowerMat.delete();
       upperMat.delete();
+    }
+
+    // --- Mostrar máscara en lugar de visual completa (modo debug) ---
+    const showMask = params && params.showMask;
+    if (showMask) {
+      try {
+        if (typeof cv.COLOR_GRAY2RGBA !== "undefined") {
+          cv.cvtColor(mask, dst, cv.COLOR_GRAY2RGBA);
+        } else if (typeof cv.COLOR_GRAY2BGRA !== "undefined") {
+          cv.cvtColor(mask, dst, cv.COLOR_GRAY2BGRA);
+        } else {
+          const rows = mask.rows;
+          const cols = mask.cols;
+          for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+              const v = mask.ucharPtr(y, x)[0];
+              const px = dst.ucharPtr(y, x);
+              px[0] = v; // R
+              px[1] = v; // G
+              px[2] = v; // B
+              px[3] = 255; // A
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[worker] Error mostrando máscara:", e);
+        self.postMessage({
+          type: "error",
+          message: "Error mostrando máscara en el worker",
+          detail: String(e),
+        });
+      }
+      return;
     }
 
     // 5. Contornos
@@ -296,11 +334,18 @@ self.addEventListener("message", async (event) => {
     width = data.w;
     height = data.h;
 
-    await waitForOpenCVInWorker();
-
-    dst = new cv.Mat(height, width, cv.CV_8UC4);
-
-    self.postMessage({ type: "ready" });
+    try {
+      await waitForOpenCVInWorker();
+      dst = new cv.Mat(height, width, cv.CV_8UC4);
+      self.postMessage({ type: "ready" });
+    } catch (err) {
+      console.error("[worker] Error en init:", err);
+      self.postMessage({
+        type: "error",
+        message: "Error inicializando el worker",
+        detail: String(err),
+      });
+    }
     return;
   }
 
@@ -310,25 +355,37 @@ self.addEventListener("message", async (event) => {
     const buffer = data.buffer;
     const params = data.params;
 
-    const u8 = new Uint8ClampedArray(buffer);
-    const imageData = new ImageData(u8, width, height);
-
-    const src = cv.matFromImageData(imageData);
-
     try {
-      processLightGraphFrame(src, dst, params);
-    } catch (err) {
-      console.error("[worker] Error en processLightGraphFrame:", err);
+      const u8 = new Uint8ClampedArray(buffer);
+      const imageData = new ImageData(u8, width, height);
+
+      const src = cv.matFromImageData(imageData);
+
+      try {
+        processLightGraphFrame(src, dst, params);
+      } catch (err) {
+        console.error("[worker] Error en processLightGraphFrame:", err);
+        self.postMessage({
+          type: "error",
+          message: "Error procesando frame en el worker",
+          detail: String(err),
+        });
+      } finally {
+        src.delete();
+      }
+
+      const out = new Uint8ClampedArray(dst.data);
+      const outImageData = new ImageData(out, width, height);
+
+      // Sin transferList: más compatible con Safari / móviles
+      self.postMessage({ type: "frame", imageData: outImageData });
+    } catch (e) {
+      console.error("[worker] Error preparando frame:", e);
+      self.postMessage({
+        type: "error",
+        message: "Error preparando frame en el worker",
+        detail: String(e),
+      });
     }
-
-    src.delete();
-
-    // Mat -> ImageData
-    const out = new Uint8ClampedArray(dst.data);
-    const outImageData = new ImageData(out, width, height);
-
-    self.postMessage({ type: "frame", imageData: outImageData }, [
-      outImageData.data.buffer,
-    ]);
   }
 });

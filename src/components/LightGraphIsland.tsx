@@ -14,6 +14,7 @@ const defaultParams: LightGraphParams = {
     neighbors: 3,
     invertEnabled: true,
     useHandsMask: false,
+    showMask: false,
 };
 
 const LightGraphIsland: React.FC = () => {
@@ -37,7 +38,8 @@ const LightGraphIsland: React.FC = () => {
         processorRef.current = createLightGraphProcessor(
             videoRef.current,
             canvasRef.current,
-            () => paramsRef.current   // � siempre lee los últimos params
+            () => paramsRef.current,
+            (msg) => setStatus(msg) // � conectamos el status del processor/worker
         );
 
         setStatus("Listo. Pulsa 'Iniciar cámara'.");
@@ -133,7 +135,7 @@ const LightGraphIsland: React.FC = () => {
         (key: keyof LightGraphParams) =>
             (e: React.ChangeEvent<HTMLInputElement>) => {
                 const isBooleanKey =
-                    key === "invertEnabled" || key === "useHandsMask";
+                    key === "invertEnabled" || key === "useHandsMask" || key === "showMask";
 
                 const value = isBooleanKey ? e.target.checked : Number(e.target.value);
                 setParams((prev) => ({
@@ -200,6 +202,16 @@ const LightGraphIsland: React.FC = () => {
                         />
                         <span>Limitar a manos</span>
                     </label>
+
+                    <label className="toggle">
+                        <input
+                            type="checkbox"
+                            id="maskToggle"
+                            checked={!!params.showMask}
+                            onChange={updateParam("showMask")}
+                        />
+                        <span>Ver máscara</span>
+                    </label>
                 </div>
 
                 <div className="sliders">
@@ -243,7 +255,7 @@ const LightGraphIsland: React.FC = () => {
                                     type="range"
                                     min={20}
                                     max={2000}
-                                    value={params.minArea ?? defaultParams.minArea}
+                                    value={params.maxArea ?? defaultParams.maxArea}
                                     onChange={updateParam("maxArea")}
                                 />
                                 <span>{params.maxArea}</span>

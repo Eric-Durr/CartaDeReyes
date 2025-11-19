@@ -16,7 +16,8 @@ export interface LightGraphProcessor {
 export function createLightGraphProcessor(
   video: HTMLVideoElement,
   canvas: HTMLCanvasElement,
-  getParams: GetParamsFn
+  getParams: GetParamsFn,
+  onStatus?: (msg: string) => void
 ): LightGraphProcessor {
   let stream: MediaStream | null = null;
   let running = false;
@@ -33,8 +34,8 @@ export function createLightGraphProcessor(
   let waitingFrame = false;
 
   function createWorker(): Worker {
-    // Worker clásico, cargado desde /public
-    return new Worker("../../public/lightGraphWorker.js");
+    // En Astro, todo lo de /public se sirve desde la raíz "/"
+    return new Worker("/lightGraphWorker.js");
   }
 
   async function start() {
@@ -42,17 +43,19 @@ export function createLightGraphProcessor(
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       alert("getUserMedia no está soportado en este navegador.");
+      onStatus?.("getUserMedia no está soportado en este navegador.");
       return;
     }
 
     try {
-      // Abrir cámara
+      onStatus?.("Solicitando acceso a la cámara…");
+
+      // Abrir cámara (constraints más suaves para móvil)
       stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          frameRate: { ideal: 30, max: 60 },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         },
         audio: false,
       });
@@ -99,49 +102,57 @@ export function createLightGraphProcessor(
       waitingFrame = false;
 
       worker.onmessage = (event: MessageEvent) => {
-        const { type } = event.data;
+        const data: any = event.data;
+        const { type } = data;
 
         if (type === "ready") {
           workerReady = true;
-          // Empezamos el loop de frames
           running = true;
+          onStatus?.("OpenCV listo en el worker. Procesando frames…");
           requestAnimationFrame(loop);
           return;
         }
 
+        if (type === "error") {
+          console.error("[main] Mensaje de error desde worker:", data.detail);
+          onStatus?.(`Worker: ${data.message || "Error desconocido"}`);
+          return;
+        }
+
         if (type === "frame") {
-          const { imageData } = event.data as { imageData: ImageData };
-          // Pintamos el frame procesado en el canvas visible
+          const { imageData } = data as { imageData: ImageData };
           displayCtx!.putImageData(imageData, 0, 0);
           waitingFrame = false;
         }
       };
 
-      // Inicializamos el worker con las dimensiones
+      worker.onerror = (e) => {
+        console.error("[main] Error en worker:", e.message);
+        onStatus?.(`Error en worker: ${e.message}`);
+      };
+
+      onStatus?.("Inicializando OpenCV en el worker…");
       worker.postMessage({ type: "init", w: width, h: height });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error al acceder a la cámara", err);
       alert("No se pudo acceder a la cámara. Revisa permisos.");
+      onStatus?.(`Error al acceder a la cámara: ${err?.name || "desconocido"}`);
     }
   }
 
   function loop() {
     if (!running || !captureCtx || !worker || !workerReady) return;
 
-    // Evitamos saturar el worker si aún no ha respondido al frame anterior
     if (!waitingFrame) {
       captureCtx.drawImage(video, 0, 0, width, height);
       const imageData = captureCtx.getImageData(0, 0, width, height);
 
-      // Enviamos solo el buffer como transferable
-      worker.postMessage(
-        {
-          type: "frame",
-          buffer: imageData.data.buffer,
-          params: getParams(),
-        },
-        [imageData.data.buffer]
-      );
+      // Enviamos el buffer SIN transferList para mejor compatibilidad móvil
+      worker.postMessage({
+        type: "frame",
+        buffer: imageData.data.buffer,
+        params: getParams(),
+      });
 
       waitingFrame = true;
     }
@@ -168,6 +179,8 @@ export function createLightGraphProcessor(
     captureCanvas = null;
     captureCtx = null;
     displayCtx = null;
+
+    onStatus?.("Procesado detenido.");
   }
 
   return { start, stop };

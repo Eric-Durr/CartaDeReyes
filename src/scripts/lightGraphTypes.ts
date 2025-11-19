@@ -7,6 +7,7 @@ export interface LightGraphParams {
   neighbors: number; // conexiones por nodo en el grafo
   invertEnabled: boolean; // interior en negativo o no
   useHandsMask: boolean;
+  showMask: boolean;
 }
 
 export interface LightBlob {
