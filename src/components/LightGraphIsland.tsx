@@ -33,6 +33,9 @@ const LightGraphIsland: React.FC = () => {
     const [videoFileName, setVideoFileName] = useState<string>("");
     const videoFileRef = useRef<File | null>(null);
 
+    // ⭐ NUEVO: estado del panel inferior en fullscreen
+    const [panelOpen, setPanelOpen] = useState(false);
+
     // Grabación del canvas
     const recorderRef = useRef<MediaRecorder | null>(null);
     const recordedChunksRef = useRef<BlobPart[]>([]);
@@ -123,6 +126,8 @@ const LightGraphIsland: React.FC = () => {
 
                 fn.call(wrapper);
                 document.body.classList.add("is-fullscreen");
+                // ⭐ al entrar en fullscreen empezamos con panel cerrado
+                setPanelOpen(false);
             } else {
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
@@ -137,6 +142,8 @@ const LightGraphIsland: React.FC = () => {
             const isFs = document.body.classList.toggle("is-fullscreen");
             if (!isFs) {
                 document.body.classList.remove("is-fullscreen");
+            } else {
+                setPanelOpen(false);
             }
         }
     };
@@ -174,7 +181,7 @@ const LightGraphIsland: React.FC = () => {
                 }));
             };
 
-    // Grabación del canvas -> WebM
+    // Grabación del canvas -> WebM / MP4 si el navegador deja
     const startRecording = () => {
         const canvasEl = canvasRef.current as any;
         const videoEl = videoRef.current as any;
@@ -194,7 +201,6 @@ const LightGraphIsland: React.FC = () => {
             return;
         }
 
-        // Soporte para captureStream en distintos navegadores
         const canvasCapture =
             canvasEl.captureStream ||
             canvasEl.mozCaptureStream ||
@@ -208,10 +214,8 @@ const LightGraphIsland: React.FC = () => {
         }
 
         try {
-            // 1) Vídeo procesado desde el canvas
-            const canvasStream: MediaStream = canvasCapture.call(canvasEl, 30); // 30 fps aprox
+            const canvasStream: MediaStream = canvasCapture.call(canvasEl, 30);
 
-            // 2) Intentar añadir audio del vídeo original (solo en modo "video")
             let finalStream: MediaStream = canvasStream;
 
             if (mode === "video" && videoEl) {
@@ -226,19 +230,15 @@ const LightGraphIsland: React.FC = () => {
 
                     if (audioTracks.length > 0) {
                         const mixed = new MediaStream();
-
-                        // vídeo = SOLO el del canvas (procesado)
-                        canvasStream.getVideoTracks().forEach((t) => mixed.addTrack(t));
-
-                        // audio = el del vídeo original
-                        audioTracks.forEach((t) => mixed.addTrack(t));
-
+                        canvasStream.getVideoTracks().forEach((t: MediaStreamTrack) =>
+                            mixed.addTrack(t)
+                        );
+                        audioTracks.forEach((t: MediaStreamTrack) => mixed.addTrack(t));
                         finalStream = mixed;
                     }
                 }
             }
 
-            // 3) Elegir mimeType intentando MP4 primero y luego cayendo a webm
             let mimeType = "";
             if (
                 typeof MediaRecorder.isTypeSupported === "function" &&
@@ -296,14 +296,15 @@ const LightGraphIsland: React.FC = () => {
                 URL.revokeObjectURL(url);
 
                 setStatus(
-                    `Grabación finalizada. Vídeo descargado en ${ext.toUpperCase()} con audio${isMp4 ? "" : " (o WebM si MP4 no está soportado)"}.`
+                    `Grabación finalizada. Vídeo descargado en ${ext.toUpperCase()} ${isMp4 ? "" : "(o WebM si MP4 no está soportado)"
+                    }.`
                 );
             };
 
             recorder.start();
             recorderRef.current = recorder;
             setIsRecording(true);
-            setStatus("Grabando desde el canvas (con audio)...");
+            setStatus("Grabando desde el canvas (con audio si está disponible)...");
         } catch (err: any) {
             console.error("Error iniciando MediaRecorder", err);
             setStatus(
@@ -312,7 +313,6 @@ const LightGraphIsland: React.FC = () => {
         }
     };
 
-
     const stopRecording = () => {
         if (!isRecording || !recorderRef.current) return;
         recorderRef.current.stop();
@@ -320,6 +320,9 @@ const LightGraphIsland: React.FC = () => {
         setIsRecording(false);
         setStatus("Deteniendo grabación…");
     };
+
+    // ⭐ NUEVO: toggle del panel inferior (bottom sheet)
+    const togglePanel = () => setPanelOpen((v) => !v);
 
     return (
         <section className="blob-tracker">
@@ -541,7 +544,7 @@ const LightGraphIsland: React.FC = () => {
             </p>
 
             <div id="videoWrapper" className="video-wrapper">
-                {/* Botón flotante para salir de pantalla completa */}
+                {/* Botón flotante para salir de pantalla completa (desktop + móvil) */}
                 <button
                     id="exitFullscreenButton"
                     className="fullscreen-exit-button"
@@ -550,6 +553,9 @@ const LightGraphIsland: React.FC = () => {
                 >
                     ✕
                 </button>
+
+                {/* ⭐ NUEVO: chip de estado en fullscreen */}
+                <div className="ltg-status-chip">{status}</div>
 
                 {/* Vídeo oculto, solo fuente */}
                 <video
@@ -563,6 +569,114 @@ const LightGraphIsland: React.FC = () => {
 
                 {/* Canvas = resultado */}
                 <canvas id="canvasOutput" ref={canvasRef} className="canvas" />
+
+                {/* ⭐ NUEVO: botón central de grabar estilo cámara iPhone */}
+                <button
+                    type="button"
+                    className="ltg-fab-record"
+                    onClick={isRecording ? stopRecording : startRecording}
+                    aria-label={isRecording ? "Parar grabación" : "Iniciar grabación"}
+                >
+                    <div
+                        className={
+                            "ltg-fab-inner" + (isRecording ? " ltg-fab-inner--on" : "")
+                        }
+                    />
+                </button>
+
+                {/* ⭐ NUEVO: bottom sheet con controles básicos para fullscreen */}
+                <section
+                    className={
+                        "ltg-bottom-sheet" +
+                        (panelOpen ? " ltg-bottom-sheet--open" : "")
+                    }
+                >
+                    <button
+                        type="button"
+                        className="ltg-bottom-sheet__handle"
+                        onClick={togglePanel}
+                        aria-label={
+                            panelOpen ? "Ocultar controles" : "Mostrar controles"
+                        }
+                    >
+                        <span className="ltg-bottom-sheet__pill" />
+                    </button>
+
+                    <div className="ltg-bottom-sheet__content">
+                        <div className="ltg-sheet-row">
+                            <label className="toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={!!params.invertEnabled}
+                                    onChange={updateParam("invertEnabled")}
+                                />
+                                <span>Negativo</span>
+                            </label>
+
+                            <label className="toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={!!params.useHandsMask}
+                                    onChange={updateParam("useHandsMask")}
+                                />
+                                <span>Solo manos</span>
+                            </label>
+
+                            <label className="toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={!!params.showMask}
+                                    onChange={updateParam("showMask")}
+                                />
+                                <span>Ver máscara</span>
+                            </label>
+                        </div>
+
+                        <div className="ltg-sheet-sliders">
+                            <label className="ltg-sheet-slider">
+                                <span>Umbral luz</span>
+                                <div className="slider-row">
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={255}
+                                        value={params.threshold ?? defaultParams.threshold}
+                                        onChange={updateParam("threshold")}
+                                    />
+                                    <span>{params.threshold}</span>
+                                </div>
+                            </label>
+
+                            <label className="ltg-sheet-slider">
+                                <span>Nº blobs</span>
+                                <div className="slider-row">
+                                    <input
+                                        type="range"
+                                        min={10}
+                                        max={300}
+                                        value={params.maxBlobs ?? defaultParams.maxBlobs}
+                                        onChange={updateParam("maxBlobs")}
+                                    />
+                                    <span>{params.maxBlobs}</span>
+                                </div>
+                            </label>
+
+                            <label className="ltg-sheet-slider">
+                                <span>Tamaño máx.</span>
+                                <div className="slider-row">
+                                    <input
+                                        type="range"
+                                        min={10}
+                                        max={200}
+                                        value={params.maxSide ?? defaultParams.maxSide}
+                                        onChange={updateParam("maxSide")}
+                                    />
+                                    <span>{params.maxSide}</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </section>
             </div>
 
             <section className="help">
@@ -585,8 +699,8 @@ const LightGraphIsland: React.FC = () => {
                         para jugar con la estética.
                     </li>
                     <li>
-                        Pulsa <strong>“Grabar & descargar”</strong> para capturar lo que se
-                        ve en el canvas a un vídeo WebM.
+                        Pulsa <strong>“Grabar & descargar”</strong> (o el círculo en
+                        fullscreen) para capturar lo que se ve en el canvas.
                     </li>
                 </ul>
             </section>
