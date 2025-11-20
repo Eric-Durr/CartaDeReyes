@@ -33,7 +33,7 @@ const LightGraphIsland: React.FC = () => {
     const [videoFileName, setVideoFileName] = useState<string>("");
     const videoFileRef = useRef<File | null>(null);
 
-    // ⭐ NUEVO: estado del panel inferior en fullscreen
+    // ⭐ nuevo: estado del panel inferior en fullscreen
     const [panelOpen, setPanelOpen] = useState(false);
 
     // Grabación del canvas
@@ -126,8 +126,7 @@ const LightGraphIsland: React.FC = () => {
 
                 fn.call(wrapper);
                 document.body.classList.add("is-fullscreen");
-                // ⭐ al entrar en fullscreen empezamos con panel cerrado
-                setPanelOpen(false);
+                setPanelOpen(false); // panel oculto por defecto
             } else {
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
@@ -321,7 +320,6 @@ const LightGraphIsland: React.FC = () => {
         setStatus("Deteniendo grabación…");
     };
 
-    // ⭐ NUEVO: toggle del panel inferior (bottom sheet)
     const togglePanel = () => setPanelOpen((v) => !v);
 
     return (
@@ -342,12 +340,12 @@ const LightGraphIsland: React.FC = () => {
                 {controlsVisible ? "Ocultar controles" : "Mostrar controles"}
             </button>
 
+            {/* Controles “de escritorio” (fuera de fullscreen) */}
             <div
                 className={
                     "controls" + (controlsVisible ? "" : " controls--hidden")
                 }
             >
-                {/* Fuente: cámara o vídeo */}
                 <div className="controls-row">
                     <span>Fuente:</span>
                     <label className="toggle">
@@ -544,7 +542,7 @@ const LightGraphIsland: React.FC = () => {
             </p>
 
             <div id="videoWrapper" className="video-wrapper">
-                {/* Botón flotante para salir de pantalla completa (desktop + móvil) */}
+                {/* Botón flotante para salir de pantalla completa */}
                 <button
                     id="exitFullscreenButton"
                     className="fullscreen-exit-button"
@@ -554,7 +552,7 @@ const LightGraphIsland: React.FC = () => {
                     ✕
                 </button>
 
-                {/* ⭐ NUEVO: chip de estado en fullscreen */}
+                {/* Chip de estado en fullscreen */}
                 <div className="ltg-status-chip">{status}</div>
 
                 {/* Vídeo oculto, solo fuente */}
@@ -570,7 +568,7 @@ const LightGraphIsland: React.FC = () => {
                 {/* Canvas = resultado */}
                 <canvas id="canvasOutput" ref={canvasRef} className="canvas" />
 
-                {/* ⭐ NUEVO: botón central de grabar estilo cámara iPhone */}
+                {/* Botón circular de grabar estilo cámara */}
                 <button
                     type="button"
                     className="ltg-fab-record"
@@ -584,24 +582,28 @@ const LightGraphIsland: React.FC = () => {
                     />
                 </button>
 
-                {/* ⭐ NUEVO: bottom sheet con controles básicos para fullscreen */}
+                {/* ⭐ nuevo: botón flotante con flecha para abrir/cerrar menú */}
+                <button
+                    type="button"
+                    className={
+                        "ltg-fab-panel-toggle" +
+                        (panelOpen ? " ltg-fab-panel-toggle--open" : "")
+                    }
+                    onClick={togglePanel}
+                    aria-label={panelOpen ? "Ocultar ajustes" : "Mostrar ajustes"}
+                >
+                    <span className="ltg-fab-panel-toggle__icon">
+                        {panelOpen ? "▾" : "▴"}
+                    </span>
+                </button>
+
+                {/* Bottom sheet solo en fullscreen (todos los sliders/opciones) */}
                 <section
                     className={
                         "ltg-bottom-sheet" +
                         (panelOpen ? " ltg-bottom-sheet--open" : "")
                     }
                 >
-                    <button
-                        type="button"
-                        className="ltg-bottom-sheet__handle"
-                        onClick={togglePanel}
-                        aria-label={
-                            panelOpen ? "Ocultar controles" : "Mostrar controles"
-                        }
-                    >
-                        <span className="ltg-bottom-sheet__pill" />
-                    </button>
-
                     <div className="ltg-bottom-sheet__content">
                         <div className="ltg-sheet-row">
                             <label className="toggle">
@@ -648,7 +650,49 @@ const LightGraphIsland: React.FC = () => {
                             </label>
 
                             <label className="ltg-sheet-slider">
-                                <span>Nº blobs</span>
+                                <span>Área mínima</span>
+                                <div className="slider-row">
+                                    <input
+                                        type="range"
+                                        min={1}
+                                        max={50}
+                                        value={params.minArea ?? defaultParams.minArea}
+                                        onChange={updateParam("minArea")}
+                                    />
+                                    <span>{params.minArea}</span>
+                                </div>
+                            </label>
+
+                            <label className="ltg-sheet-slider">
+                                <span>Área máxima</span>
+                                <div className="slider-row">
+                                    <input
+                                        type="range"
+                                        min={20}
+                                        max={2000}
+                                        value={params.maxArea ?? defaultParams.maxArea}
+                                        onChange={updateParam("maxArea")}
+                                    />
+                                    <span>{params.maxArea}</span>
+                                </div>
+                            </label>
+
+                            <label className="ltg-sheet-slider">
+                                <span>Tamaño máx. lado</span>
+                                <div className="slider-row">
+                                    <input
+                                        type="range"
+                                        min={10}
+                                        max={200}
+                                        value={params.maxSide ?? defaultParams.maxSide}
+                                        onChange={updateParam("maxSide")}
+                                    />
+                                    <span>{params.maxSide}</span>
+                                </div>
+                            </label>
+
+                            <label className="ltg-sheet-slider">
+                                <span>Nº de blobs</span>
                                 <div className="slider-row">
                                     <input
                                         type="range"
@@ -662,16 +706,16 @@ const LightGraphIsland: React.FC = () => {
                             </label>
 
                             <label className="ltg-sheet-slider">
-                                <span>Tamaño máx.</span>
+                                <span>Conexiones/nodo</span>
                                 <div className="slider-row">
                                     <input
                                         type="range"
-                                        min={10}
-                                        max={200}
-                                        value={params.maxSide ?? defaultParams.maxSide}
-                                        onChange={updateParam("maxSide")}
+                                        min={1}
+                                        max={8}
+                                        value={params.neighbors ?? defaultParams.neighbors}
+                                        onChange={updateParam("neighbors")}
                                     />
-                                    <span>{params.maxSide}</span>
+                                    <span>{params.neighbors}</span>
                                 </div>
                             </label>
                         </div>
@@ -699,8 +743,8 @@ const LightGraphIsland: React.FC = () => {
                         para jugar con la estética.
                     </li>
                     <li>
-                        Pulsa <strong>“Grabar & descargar”</strong> (o el círculo en
-                        fullscreen) para capturar lo que se ve en el canvas.
+                        Pulsa <strong>“Grabar & descargar”</strong> o el círculo en
+                        fullscreen para capturar lo que se ve en el canvas.
                     </li>
                 </ul>
             </section>
