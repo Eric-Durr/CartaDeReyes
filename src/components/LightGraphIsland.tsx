@@ -177,6 +177,8 @@ const LightGraphIsland: React.FC = () => {
     // Grabación del canvas -> WebM
     const startRecording = () => {
         const canvasEl = canvasRef.current as any;
+        const videoEl = videoRef.current as any;
+
         if (!canvasEl) {
             setStatus("No hay canvas para grabar.");
             return;
@@ -193,22 +195,62 @@ const LightGraphIsland: React.FC = () => {
         }
 
         // Soporte para captureStream en distintos navegadores
-        const capture =
+        const canvasCapture =
             canvasEl.captureStream ||
             canvasEl.mozCaptureStream ||
             canvasEl.webkitCaptureStream;
 
-        if (!capture) {
-            setStatus("Tu navegador no permite grabar el canvas (sin captureStream).");
+        if (!canvasCapture) {
+            setStatus(
+                "Tu navegador no permite grabar el canvas (no soporta captureStream)."
+            );
             return;
         }
 
         try {
-            const stream: MediaStream = capture.call(canvasEl, 30); // 30 fps aprox
+            // 1) Vídeo procesado desde el canvas
+            const canvasStream: MediaStream = canvasCapture.call(canvasEl, 30); // 30 fps aprox
 
-            // Elegir mimeType compatible
+            // 2) Intentar añadir audio del vídeo original (solo en modo "video")
+            let finalStream: MediaStream = canvasStream;
+
+            if (mode === "video" && videoEl) {
+                const videoCapture =
+                    videoEl.captureStream ||
+                    videoEl.mozCaptureStream ||
+                    videoEl.webkitCaptureStream;
+
+                if (videoCapture) {
+                    const videoStream: MediaStream = videoCapture.call(videoEl);
+                    const audioTracks = videoStream.getAudioTracks();
+
+                    if (audioTracks.length > 0) {
+                        const mixed = new MediaStream();
+
+                        // vídeo = SOLO el del canvas (procesado)
+                        canvasStream.getVideoTracks().forEach((t) => mixed.addTrack(t));
+
+                        // audio = el del vídeo original
+                        audioTracks.forEach((t) => mixed.addTrack(t));
+
+                        finalStream = mixed;
+                    }
+                }
+            }
+
+            // 3) Elegir mimeType intentando MP4 primero y luego cayendo a webm
             let mimeType = "";
             if (
+                typeof MediaRecorder.isTypeSupported === "function" &&
+                MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")
+            ) {
+                mimeType = "video/mp4;codecs=avc1";
+            } else if (
+                typeof MediaRecorder.isTypeSupported === "function" &&
+                MediaRecorder.isTypeSupported("video/mp4")
+            ) {
+                mimeType = "video/mp4";
+            } else if (
                 typeof MediaRecorder.isTypeSupported === "function" &&
                 MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
             ) {
@@ -225,11 +267,8 @@ const LightGraphIsland: React.FC = () => {
                 mimeType = "video/webm";
             }
 
-            const options: MediaRecorderOptions = mimeType
-                ? { mimeType }
-                : {};
-
-            const recorder = new MediaRecorder(stream, options);
+            const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
+            const recorder = new MediaRecorder(finalStream, options);
             recordedChunksRef.current = [];
 
             recorder.ondataavailable = (e) => {
@@ -239,29 +278,37 @@ const LightGraphIsland: React.FC = () => {
             };
 
             recorder.onstop = () => {
+                const isMp4 = mimeType.includes("mp4");
                 const blob = new Blob(recordedChunksRef.current, {
-                    type: mimeType || "video/webm",
+                    type: mimeType || (isMp4 ? "video/mp4" : "video/webm"),
                 });
+
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
 
-                // Nombre de archivo más descriptivo
-                a.download = "light-graph-output.webm";
+                const ext = isMp4 ? "mp4" : "webm";
+                a.download = `light-graph-output.${ext}`;
+
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(url);
-                setStatus("Grabación finalizada. Vídeo descargado.");
+
+                setStatus(
+                    `Grabación finalizada. Vídeo descargado en ${ext.toUpperCase()} con audio${isMp4 ? "" : " (o WebM si MP4 no está soportado)"}.`
+                );
             };
 
             recorder.start();
             recorderRef.current = recorder;
             setIsRecording(true);
-            setStatus("Grabando desde el canvas…");
+            setStatus("Grabando desde el canvas (con audio)...");
         } catch (err: any) {
             console.error("Error iniciando MediaRecorder", err);
-            setStatus("No se pudo iniciar la grabación (quizá no soportado en este navegador).");
+            setStatus(
+                "No se pudo iniciar la grabación (quizá este navegador no soporta el formato elegido)."
+            );
         }
     };
 

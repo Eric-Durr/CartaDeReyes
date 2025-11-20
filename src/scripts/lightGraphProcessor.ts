@@ -163,13 +163,15 @@ export function createLightGraphProcessor(
     onStatus?.("Inicializando OpenCV en el worker…");
     worker.postMessage({ type: "init", w: width, h: height });
 
-    // Si es vídeo de archivo, paramos el loop cuando termine la reproducción
-    video.onended = () => {
-      if (sourceType === "video") {
-        running = false;
-        onStatus?.("Vídeo finalizado.");
-      }
-    };
+    if (sourceType === "video") {
+      // Loop infinito, como stories / reels
+      video.loop = true;
+      // Nos aseguramos de no tener ningún handler que pare el procesado
+      video.onended = null;
+    } else {
+      video.loop = false;
+      video.onended = null;
+    }
   }
 
   async function startCamera() {
