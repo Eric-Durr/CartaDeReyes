@@ -3,6 +3,7 @@
   https://github.com/HermanMartinus/bearblog/blob/297026a877bc2ab2b3bdfbd6b9f7961c350917dd/templates/styles/blog/default.css
   License MIT: https://github.com/HermanMartinus/bearblog/blob/master/LICENSE.md
  */
+@import "flowbite/src/themes/mono";
 
 :root {
 	--accent: #2337ff;
@@ -43,8 +44,8 @@ body {
 	line-height: 1.7;
 }
 main {
-	width: 720px;
-	max-width: calc(100% - 2em);
+	width: 100%;
+	max-width: 1200px; /* <-- cambiado para permitir layout en fila */
 	margin: auto;
 	padding: 3em 1em;
 }
@@ -834,4 +835,42 @@ body.is-fullscreen .ltg-bottom-sheet.ltg-bottom-sheet--open {
   margin-bottom: 0.1rem;
   font-size: 0.75rem;
   opacity: 0.9;
+}
+
+/* Layout principal LightGraph: vista previa + panel lateral */
+.lg-layout-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* A partir de escritorio los ponemos en fila */
+@media (min-width: 1024px) {
+  .lg-layout-main {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .lg-layout-main > *:first-child {
+    flex: 1 1 0%;
+  }
+
+  /* Panel mucho más estrecho para no robarle espacio al canvas */
+  .lg-layout-main > *:last-child {
+    flex: 0 0 240px;
+    max-width: 260px;
+  }
+}
+
+
+
+/* Hace que la sección de LightGraph se extienda a todo el ancho del viewport,
+   incluso dentro del <main> centrado de Astro */
+.lightgraph-outer {
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  width: 100vw;
 }
