@@ -10,10 +10,22 @@ import LightGraphIsland from "../components/LightGraphIsland";
 <html lang="es">
   <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
 
-  <body class="bg-slate-950 text-slate-100">
+  {
+    /*
+    � Esta clase activa el layout especial en global.css
+    y quita el gradiente/blanco de fondo.
+  */
+  }
+  <body class="layout-lightgraph">
     <Header title={SITE_TITLE} />
 
-    <main class="main-full">
+    {
+      /*
+      main ya no limita a 720px gracias a body.layout-lightgraph main {...}
+      y dejamos que el island controle su propio padding.
+    */
+    }
+    <main>
       <LightGraphIsland client:load />
     </main>
 

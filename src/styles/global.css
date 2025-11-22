@@ -874,3 +874,29 @@ body.is-fullscreen .ltg-bottom-sheet.ltg-bottom-sheet--open {
   margin-right: -50vw;
   width: 100vw;
 }
+
+
+/* Main de ancho completo para páginas especiales (como LightGraph) */
+main.main-full {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+
+/* Layout específico para la página de LightGraph */
+body.layout-lightgraph {
+  /* Quitamos el gradiente del blog y lo ponemos oscuro */
+  background: #020617;
+  background-size: auto;
+  color: #e5e7eb;
+}
+
+/* En este layout, el main ocupa toda la vista y no añade padding extra */
+body.layout-lightgraph main {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
