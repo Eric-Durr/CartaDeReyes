@@ -43,7 +43,10 @@ const LightGraphIsland: React.FC = () => {
     const recordedChunksRef = useRef<BlobPart[]>([]);
     const [isRecording, setIsRecording] = useState(false);
 
-    // � nuevo: ancho ajustable del panel de preview (en px)
+    // fuente activa (cámara o vídeo ya iniciado)
+    const [isLive, setIsLive] = useState(false);
+
+    // ancho ajustable del panel de preview (solo escritorio)
     const [previewWidth, setPreviewWidth] = useState<number | null>(null);
 
     // Mantener params en ref
@@ -66,6 +69,7 @@ const LightGraphIsland: React.FC = () => {
 
         return () => {
             processorRef.current?.stop();
+            setIsLive(false);
         };
     }, []);
 
@@ -115,9 +119,13 @@ const LightGraphIsland: React.FC = () => {
                 setStatus("Preparando vídeo…");
                 await processorRef.current.startVideoFile(videoFileRef.current);
             }
+
+            // ✅ Cámara o vídeo activos
+            setIsLive(true);
         } catch (err) {
             console.error(err);
             setStatus("Error al iniciar el procesado.");
+            setIsLive(false);
         }
     };
 
@@ -136,7 +144,8 @@ const LightGraphIsland: React.FC = () => {
     };
 
     const toggleFullscreen = () => {
-        const wrapper = canvasRef.current?.parentElement?.parentElement; // el que tiene id="videoWrapper"
+        // canvas -> ratio-wrapper -> videoWrapper
+        const wrapper = canvasRef.current?.parentElement?.parentElement;
         if (!wrapper) return;
 
         const anyWrapper = wrapper as any;
@@ -219,6 +228,11 @@ const LightGraphIsland: React.FC = () => {
             };
 
     const startRecording = () => {
+        if (!isLive) {
+            setStatus("Activa primero la cámara o el vídeo antes de grabar.");
+            return;
+        }
+
         const canvasEl = canvasRef.current as any;
         const videoEl = videoRef.current as any;
 
@@ -360,38 +374,56 @@ const LightGraphIsland: React.FC = () => {
 
     const togglePanel = () => setPanelOpen((v) => !v);
 
+    const handleModeChange = (newMode: Mode) => {
+        setMode(newMode);
+        setIsLive(false); // cambiamos de fuente => reset live
+    };
+
     // ====== RENDER ======
 
     return (
         <section className="min-h-screen bg-slate-950 text-slate-100">
             <div className="mx-auto w-full max-w-6xl px-4 py-6 lg:py-8">
-                <HeaderBar
-                    controlsVisible={controlsVisible}
-                    onToggleControls={() => setControlsVisible((v) => !v)}
-                />
+                <HeaderBar />
 
                 <div className="lg-layout-main">
-                    <PreviewArea
-                        videoRef={videoRef}
-                        canvasRef={canvasRef}
-                        mode={mode}
-                        status={status}
-                        isRecording={isRecording}
-                        isFullscreen={isFullscreen}
-                        panelOpen={panelOpen}
-                        previewWidth={previewWidth}
-                        onResizeWidth={setPreviewWidth}
-                        onExitFullscreen={exitFullscreen}
-                        onToggleFullscreen={toggleFullscreen}
-                        onStartRecording={startRecording}
-                        onStopRecording={stopRecording}
-                        onTogglePanel={togglePanel}
-                    />
+                    <div className="flex flex-1 flex-col gap-3">
+                        <PreviewArea
+                            videoRef={videoRef}
+                            canvasRef={canvasRef}
+                            mode={mode}
+                            status={status}
+                            isRecording={isRecording}
+                            isFullscreen={isFullscreen}
+                            panelOpen={panelOpen}
+                            isLive={isLive}
+                            previewWidth={previewWidth}
+                            onResizeWidth={setPreviewWidth}
+                            onExitFullscreen={exitFullscreen}
+                            onToggleFullscreen={toggleFullscreen}
+                            onStartRecording={startRecording}
+                            onStopRecording={stopRecording}
+                            onTogglePanel={togglePanel}
+                            params={params}
+                            updateParam={updateParam}
+                        />
+
+                        {!controlsVisible && (
+                            <div className="flex w-full justify-end">
+                                <button
+                                    className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:border-slate-500 hover:bg-slate-800"
+                                    onClick={() => setControlsVisible(true)}
+                                >
+                                    Mostrar panel de controles
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
                     <DesktopControlsPanel
                         visible={controlsVisible}
                         mode={mode}
-                        onModeChange={setMode}
+                        onModeChange={handleModeChange}
                         videoFileName={videoFileName}
                         onVideoFileChange={handleVideoFileChange}
                         onStart={handleStart}
@@ -399,36 +431,23 @@ const LightGraphIsland: React.FC = () => {
                             isRecording ? stopRecording() : startRecording()
                         }
                         isRecording={isRecording}
+                        isLive={isLive}
                         params={params}
                         updateParam={updateParam}
+                        onToggleVisible={() => setControlsVisible((v) => !v)}
                     />
                 </div>
 
                 <HelpSection />
             </div>
-
-            <FullscreenBottomSheet
-                isFullscreen={isFullscreen}
-                panelOpen={panelOpen}
-                params={params}
-                updateParam={updateParam}
-            />
         </section>
     );
 };
 
 // ====== SUBCOMPONENTES ======
 
-interface HeaderBarProps {
-    controlsVisible: boolean;
-    onToggleControls: () => void;
-}
-
-const HeaderBar: React.FC<HeaderBarProps> = ({
-    controlsVisible,
-    onToggleControls,
-}) => (
-    <header className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+const HeaderBar: React.FC = () => (
+    <header className="mb-3 flex flex-col gap-2 md:mb-4 md:flex-row md:items-end md:justify-between">
         <div>
             <h1 className="text-2xl font-semibold tracking-tight md:text-3xl text-white">
                 ✨ Light Graph Tracker
@@ -439,13 +458,6 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
                 en tiempo real.
             </p>
         </div>
-
-        <button
-            className="mt-2 inline-flex w-max items-center justify-center rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:border-slate-500 hover:bg-slate-800 md:mt-0"
-            onClick={onToggleControls}
-        >
-            {controlsVisible ? "Ocultar panel" : "Mostrar panel"}
-        </button>
     </header>
 );
 
@@ -457,6 +469,7 @@ interface PreviewAreaProps {
     isRecording: boolean;
     isFullscreen: boolean;
     panelOpen: boolean;
+    isLive: boolean;
     previewWidth: number | null;
     onResizeWidth: (w: number | null) => void;
     onExitFullscreen: () => void;
@@ -464,6 +477,10 @@ interface PreviewAreaProps {
     onStartRecording: () => void;
     onStopRecording: () => void;
     onTogglePanel: () => void;
+    params: LightGraphParams;
+    updateParam: (
+        key: keyof LightGraphParams
+    ) => (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 const PreviewArea: React.FC<PreviewAreaProps> = ({
@@ -474,6 +491,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
     isRecording,
     isFullscreen,
     panelOpen,
+    isLive,
     previewWidth,
     onResizeWidth,
     onExitFullscreen,
@@ -481,37 +499,76 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
     onStartRecording,
     onStopRecording,
     onTogglePanel,
+    params,
+    updateParam,
 }) => {
     const wrapperRef = useRef<HTMLDivElement | null>(null);
 
-    const handleResizeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (isFullscreen) return; // nada de redimensionar en fullscreen
-        e.preventDefault();
-        e.stopPropagation();
+    type Edge = "left" | "right";
 
+    const startResize = (startClientX: number, edge: Edge) => {
+        // Sin resize en móvil
+        if (window.innerWidth < 768) return;
+        if (isFullscreen) return;
         if (!wrapperRef.current) return;
-        const startX = e.clientX;
+
         const rect = wrapperRef.current.getBoundingClientRect();
         const startWidth = rect.width;
+        const direction = edge === "right" ? 1 : -1;
 
-        const onMove = (ev: MouseEvent) => {
-            const delta = ev.clientX - startX;
+        const min = 360;
+        const rawMax = Math.min(window.innerWidth - 320, 1200);
+        const max = Math.max(min, rawMax);
+
+        const getClientX = (ev: MouseEvent | TouchEvent): number => {
+            if ("touches" in ev && ev.touches.length > 0) {
+                return ev.touches[0].clientX;
+            }
+            if ("clientX" in ev) {
+                return (ev as MouseEvent).clientX;
+            }
+            return startClientX;
+        };
+
+        const onMove = (ev: MouseEvent | TouchEvent) => {
+            const clientX = getClientX(ev);
+            const delta = (clientX - startClientX) * direction;
             let newWidth = startWidth + delta;
-            const min = 320;
-            const max = Math.min(window.innerWidth - 32, 1200);
+
             if (newWidth < min) newWidth = min;
             if (newWidth > max) newWidth = max;
+
             onResizeWidth(newWidth);
         };
 
         const onUp = () => {
-            window.removeEventListener("mousemove", onMove);
+            window.removeEventListener("mousemove", onMove as any);
             window.removeEventListener("mouseup", onUp);
+            window.removeEventListener("touchmove", onMove as any);
+            window.removeEventListener("touchend", onUp);
+            window.removeEventListener("touchcancel", onUp);
         };
 
-        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mousemove", onMove as any);
         window.addEventListener("mouseup", onUp);
+        window.addEventListener("touchmove", onMove as any, { passive: false });
+        window.addEventListener("touchend", onUp);
+        window.addEventListener("touchcancel", onUp);
     };
+
+    const makeCornerHandlers = (edge: Edge) => ({
+        onMouseDown: (e: React.MouseEvent<HTMLDivElement>) => {
+            e.preventDefault();
+            e.stopPropagation();
+            startResize(e.clientX, edge);
+        },
+        onTouchStart: (e: React.TouchEvent<HTMLDivElement>) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const touch = e.touches[0];
+            startResize(touch.clientX, edge);
+        },
+    });
 
     const wrapperStyle: React.CSSProperties =
         !isFullscreen && previewWidth
@@ -520,7 +577,6 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
 
     return (
         <div className="flex flex-1 flex-col items-center gap-3">
-            {/* Status linea */}
             <p className="w-full rounded-full bg-slate-900/80 px-4 py-2 text-xs text-slate-300 shadow-sm ring-1 ring-slate-800 md:text-sm">
                 {status}
             </p>
@@ -529,13 +585,15 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                 id="videoWrapper"
                 ref={wrapperRef}
                 style={wrapperStyle}
-                className="relative max-w-full overflow-hidden rounded-xl bg-black shadow-xl ring-1 ring-slate-800"
+                className="relative max-w-full overflow-visible rounded-xl bg-black shadow-xl ring-1 ring-slate-800"
             >
+                {/* Contenedor 16:9 */}
                 <div className="relative w-full pb-[56.25%]">
+                    {/* En mobile evitamos display:none para no romper autoplay */}
                     <video
                         id="videoInput"
                         ref={videoRef}
-                        className="hidden"
+                        className="absolute inset-0 h-full w-full opacity-0 pointer-events-none"
                         autoPlay
                         playsInline
                         muted
@@ -551,7 +609,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                 {isFullscreen && (
                     <button
                         id="exitFullscreenButton"
-                        className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-xs text-slate-100 backdrop-blur hover:bg-black/80"
+                        className="absolute right-3 top-3 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-xs text-slate-100 backdrop-blur hover:bg-black/80"
                         aria-label="Salir de pantalla completa"
                         onClick={onExitFullscreen}
                     >
@@ -560,42 +618,44 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                 )}
 
                 {/* Chip de estado */}
-                <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-black/60 px-3 py-1 text-[11px] text-slate-100 backdrop-blur sm:text-xs">
+                <div className="pointer-events-none absolute left-3 top-3 z-20 rounded-full bg-black/60 px-3 py-1 text-[11px] text-slate-100 backdrop-blur sm:text-xs">
                     Live • {mode === "camera" ? "Cámara" : "Vídeo"}
                 </div>
 
-                {/* Botón circular de grabar */}
-                <button
-                    type="button"
-                    className="absolute bottom-4 left-1/2 z-20 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full border-[3px] border-slate-100/80 bg-black/20 backdrop-blur hover:bg-black/40"
-                    onClick={isRecording ? onStopRecording : onStartRecording}
-                    aria-label={isRecording ? "Parar grabación" : "Iniciar grabación"}
-                >
-                    <div
-                        className={
-                            "transition-all duration-200 " +
-                            (isRecording
-                                ? "h-6 w-6 rounded-lg bg-red-500"
-                                : "h-8 w-8 rounded-full bg-red-500")
-                        }
-                    />
-                </button>
+                {/* Botón circular de grabar: solo si hay fuente activa */}
+                {isLive && (
+                    <button
+                        type="button"
+                        className="absolute bottom-4 left-1/2 z-20 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full border-[3px] border-slate-100/80 bg-black/20 backdrop-blur hover:bg-black/40"
+                        onClick={isRecording ? onStopRecording : onStartRecording}
+                        aria-label={isRecording ? "Parar grabación" : "Iniciar grabación"}
+                    >
+                        <div
+                            className={
+                                "transition-all duration-200 " +
+                                (isRecording
+                                    ? "h-6 w-6 rounded-lg bg-red-500"
+                                    : "h-8 w-8 rounded-full bg-red-500")
+                            }
+                        />
+                    </button>
+                )}
 
-                {/* Botón fullscreen en esquina inferior derecha */}
-                <button
+                {/* Botón fullscreen esquina inferior derecha */}
+                {<button
                     type="button"
                     className="absolute bottom-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-lg text-slate-100 backdrop-blur hover:bg-black/80"
                     onClick={onToggleFullscreen}
                     aria-label="Pantalla completa"
                 >
                     ⤢
-                </button>
+                </button>}
 
-                {/* Botón para abrir/cerrar panel en móvil (solo fullscreen) */}
+                {/* Botón para abrir/cerrar panel en fullscreen */}
                 {isFullscreen && (
                     <button
                         type="button"
-                        className="absolute bottom-4 right-16 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-lg text-slate-100 backdrop-blur hover:bg-black/80 lg:hidden"
+                        className="absolute bottom-4 right-16 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-lg text-slate-100 backdrop-blur hover:bg-black/80"
                         onClick={onTogglePanel}
                         aria-label={panelOpen ? "Ocultar ajustes" : "Mostrar ajustes"}
                     >
@@ -603,16 +663,24 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                     </button>
                 )}
 
-                {/* � Handle de resize en la esquina inferior derecha (solo fuera de fullscreen) */}
+                {/* ---------- Handle de resize camuflado (solo escritorio) ---------- */}
                 {!isFullscreen && (
                     <div
-                        className="absolute bottom-1 right-1 z-10 flex h-4 w-4 cursor-se-resize items-end justify-end rounded bg-slate-700/80 hover:bg-slate-500/90"
-                        onMouseDown={handleResizeMouseDown}
-                        title="Arrastra para ajustar el tamaño"
+                        className="pointer-events-auto absolute -bottom-1 -right-1 z-30 h-6 w-6 cursor-se-resize md:flex opacity-0"
+                        {...makeCornerHandlers("right")}
                     >
-                        <div className="h-3 w-3 border-b border-r border-slate-300/80" />
+                        <div className="m-auto h-3 w-3 border-b border-r border-slate-400/60" />
                     </div>
                 )}
+
+                {/* Bottom sheet DENTRO del wrapper (funciona también en fullscreen nativo) */}
+                <FullscreenBottomSheet
+                    isFullscreen={isFullscreen}
+                    panelOpen={panelOpen}
+                    params={params}
+                    updateParam={updateParam}
+                    onTogglePanel={onTogglePanel}
+                />
             </div>
         </div>
     );
@@ -627,10 +695,12 @@ interface DesktopControlsPanelProps {
     onStart: () => void;
     onRecordClick: () => void;
     isRecording: boolean;
+    isLive: boolean;
     params: LightGraphParams;
     updateParam: (
         key: keyof LightGraphParams
     ) => (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onToggleVisible: () => void;
 }
 
 const DesktopControlsPanel: React.FC<DesktopControlsPanelProps> = ({
@@ -642,13 +712,28 @@ const DesktopControlsPanel: React.FC<DesktopControlsPanelProps> = ({
     onStart,
     onRecordClick,
     isRecording,
+    isLive,
     params,
     updateParam,
+    onToggleVisible,
 }) => (
     <aside
         className={`w-full max-w-md space-y-4 rounded-2xl bg-slate-900/80 p-4 shadow-lg ring-1 ring-slate-800 backdrop-blur lg:w-80 ${visible ? "block" : "hidden lg:block"
             }`}
     >
+        <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                Controles
+            </span>
+            <button
+                type="button"
+                className="text-[11px] text-slate-400 hover:text-slate-200"
+                onClick={onToggleVisible}
+            >
+                Ocultar panel
+            </button>
+        </div>
+
         <div className="space-y-2">
             <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
                 Fuente
@@ -688,9 +773,7 @@ const DesktopControlsPanel: React.FC<DesktopControlsPanelProps> = ({
                         className="block w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950/60 text-xs text-slate-200 file:mr-3 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-slate-100 hover:file:bg-slate-700"
                     />
                     {videoFileName && (
-                        <p className="truncate text-xs text-slate-400">
-                            {videoFileName}
-                        </p>
+                        <p className="truncate text-xs text-slate-400">{videoFileName}</p>
                     )}
                 </div>
             )}
@@ -705,12 +788,15 @@ const DesktopControlsPanel: React.FC<DesktopControlsPanelProps> = ({
                 {mode === "camera" ? "Iniciar cámara" : "Iniciar vídeo"}
             </button>
 
-            <button
-                className="inline-flex flex-none items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-slate-500 hover:bg-slate-800"
-                onClick={onRecordClick}
-            >
-                {isRecording ? "Parar & descargar" : "Grabar"}
-            </button>
+            {/* Botón de grabar solo cuando hay fuente activa */}
+            {isLive && (
+                <button
+                    className="inline-flex flex-none items-center justify-center rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-slate-500 hover:bg-slate-800"
+                    onClick={onRecordClick}
+                >
+                    {isRecording ? "Parar & descargar" : "Grabar"}
+                </button>
+            )}
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -797,28 +883,134 @@ interface FullscreenBottomSheetProps {
     updateParam: (
         key: keyof LightGraphParams
     ) => (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onTogglePanel: () => void;
 }
 
+/**
+ * Bottom sheet deslizable en fullscreen:
+ * - Se renderiza dentro de `videoWrapper`
+ * - Sigue al dedo mientras arrastras la barra superior
+ * - Al soltar, encaja arriba (abierto) o abajo (cerrado)
+ */
 const FullscreenBottomSheet: React.FC<FullscreenBottomSheetProps> = ({
     isFullscreen,
     panelOpen,
     params,
     updateParam,
-}) =>
-    !isFullscreen ? null : (
-        <section
-            className={
-                "fixed inset-x-0 bottom-0 z-40 max-h-[55vh] transform bg-slate-900/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_40px_rgba(0,0,0,0.7)] backdrop-blur transition-transform duration-300 lg:hidden " +
-                (panelOpen ? "translate-y-0" : "translate-y-full")
+    onTogglePanel,
+}) => {
+    const [dragOffset, setDragOffset] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+
+    useEffect(() => {
+        // Si se cierra desde fuera, reseteamos drag
+        if (!panelOpen) {
+            setDragOffset(0);
+            setIsDragging(false);
+        }
+    }, [panelOpen]);
+
+    if (!isFullscreen) return null;
+
+    const startDrag = (startY: number) => {
+        if (!panelOpen) return; // solo arrastramos cuando está abierto
+        setIsDragging(true);
+        let currentOffset = 0;
+        const MAX_OFFSET = window.innerHeight * 0.55; // coincide con max-h ~55vh
+        const THRESHOLD = 72; // píxeles para decidir si cerramos
+
+        const getClientY = (ev: MouseEvent | TouchEvent): number => {
+            if ("touches" in ev && ev.touches.length > 0) {
+                return ev.touches[0].clientY;
             }
+            if ("clientY" in ev) {
+                return (ev as MouseEvent).clientY;
+            }
+            return startY;
+        };
+
+        const onMove = (ev: MouseEvent | TouchEvent) => {
+            const y = getClientY(ev);
+            const delta = y - startY;
+            const clamped = Math.max(0, Math.min(delta, MAX_OFFSET));
+            currentOffset = clamped;
+            setDragOffset(clamped);
+        };
+
+        const onUp = () => {
+            window.removeEventListener("mousemove", onMove as any);
+            window.removeEventListener("mouseup", onUp);
+            window.removeEventListener("touchmove", onMove as any);
+            window.removeEventListener("touchend", onUp);
+            window.removeEventListener("touchcancel", onUp);
+
+            setIsDragging(false);
+
+            if (currentOffset > THRESHOLD) {
+                // cerrar
+                setDragOffset(0);
+                onTogglePanel();
+            } else {
+                // volver suavemente a posición abierta
+                setDragOffset(0);
+            }
+        };
+
+        window.addEventListener("mousemove", onMove as any);
+        window.addEventListener("mouseup", onUp);
+        window.addEventListener("touchmove", onMove as any, { passive: false });
+        window.addEventListener("touchend", onUp);
+        window.addEventListener("touchcancel", onUp);
+    };
+
+    const handleMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.preventDefault();
+        startDrag(e.clientY);
+    };
+
+    const handleTouchStart = (e: React.TouchEvent<HTMLButtonElement>) => {
+        if (e.touches.length === 0) return;
+        e.preventDefault();
+        startDrag(e.touches[0].clientY);
+    };
+
+    const sheetStyle: React.CSSProperties = {
+        transform: !panelOpen
+            ? "translateY(100%)"
+            : isDragging
+                ? `translateY(${dragOffset}px)`
+                : "translateY(0)",
+        transition: isDragging ? "none" : "transform 0.25s ease-out",
+        willChange: "transform",
+    };
+
+    return (
+        <section
+            className="fixed inset-x-0 bottom-0 z-40 max-h-[55vh] bg-slate-900/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_40px_rgba(0,0,0,0.7)] backdrop-blur"
+            style={sheetStyle}
         >
-            <div className="mx-auto flex max-w-lg flex-col gap-4 overflow-y-auto px-4 pt-3 pb-4">
-                <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-600" />
+            <div className="mx-auto flex max-w-3xl flex-col gap-4 overflow-y-auto px-4 pt-3 pb-4">
+                {/* Barra tipo iOS: deslizar hacia abajo para cerrar */}
+                <button
+                    type="button"
+                    className="mx-auto h-1.5 w-12 rounded-full bg-slate-600"
+                    onMouseDown={handleMouseDown}
+                    onTouchStart={handleTouchStart}
+                    aria-label="Desliza hacia abajo para cerrar el panel"
+                />
+
                 <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-slate-100">
                         Ajustes en directo
                     </h3>
-                    <span className="text-[11px] text-slate-400">Fullscreen</span>
+                    {/* Botón interno para colapsar */}
+                    <button
+                        type="button"
+                        onClick={onTogglePanel}
+                        className="rounded-full border border-slate-600 px-2 py-0.5 text-[11px] text-slate-200 hover:bg-slate-800"
+                    >
+                        Cerrar
+                    </button>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
@@ -898,39 +1090,56 @@ const FullscreenBottomSheet: React.FC<FullscreenBottomSheetProps> = ({
             </div>
         </section>
     );
+};
 
-const HelpSection: React.FC = () => (
-    <section className="mt-4 rounded-2xl bg-slate-900/60 p-4 text-sm text-slate-300 ring-1 ring-slate-800">
-        <h2 className="mb-2 text-sm font-semibold text-slate-100 md:text-base">
-            Cómo usarlo
-        </h2>
-        <ul className="list-disc space-y-1 pl-5">
-            <li>
-                Elige <strong>Cámara</strong> o <strong>Vídeo subido</strong>.
-            </li>
-            <li>
-                En modo vídeo, selecciona un archivo y pulsa{" "}
-                <strong>“Iniciar vídeo”</strong>.
-            </li>
-            <li>
-                Ajusta <strong>umbral</strong>, tamaños y número de blobs para controlar
-                la densidad de la red.
-            </li>
-            <li>
-                Usa <strong>Negativo</strong>, <strong>Solo manos</strong> y{" "}
-                <strong>Ver máscara</strong> para cambiar el carácter del efecto.
-            </li>
-            <li>
-                En móvil, entra en <strong>Pantalla completa</strong> y abre el panel
-                inferior con la flecha para manipular parámetros en directo.
-            </li>
-            <li>
-                En escritorio, puedes ajustar el tamaño del panel arrastrando la esquina
-                inferior derecha del preview.
-            </li>
-        </ul>
-    </section>
-);
+const HelpSection: React.FC = () => {
+    const [open, setOpen] = useState(true);
+
+    return (
+        <section className="mt-4 rounded-2xl bg-slate-900/60 p-4 text-sm text-slate-300 ring-1 ring-slate-800">
+            <button
+                type="button"
+                className="flex w-full items-center justify-between text-left"
+                onClick={() => setOpen((v) => !v)}
+            >
+                <h2 className="text-sm font-semibold text-slate-100 md:text-base">
+                    Cómo usarlo
+                </h2>
+                <span className="text-xs text-slate-400">
+                    {open ? "Ocultar" : "Mostrar"}
+                </span>
+            </button>
+
+            {open && (
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                    <li>
+                        Elige <strong>Cámara</strong> o <strong>Vídeo subido</strong>.
+                    </li>
+                    <li>
+                        En modo vídeo, selecciona un archivo y pulsa{" "}
+                        <strong>“Iniciar vídeo”</strong>.
+                    </li>
+                    <li>
+                        Ajusta <strong>umbral</strong>, tamaños y número de blobs para
+                        controlar la densidad de la red.
+                    </li>
+                    <li>
+                        Usa <strong>Negativo</strong>, <strong>Solo manos</strong> y{" "}
+                        <strong>Ver máscara</strong> para cambiar el carácter del efecto.
+                    </li>
+                    <li>
+                        En móvil, entra en <strong>Pantalla completa</strong> y abre el
+                        panel inferior con la flecha para manipular parámetros en directo.
+                    </li>
+                    <li>
+                        En escritorio, puedes ajustar el ancho del panel arrastrando la
+                        esquina inferior derecha del preview.
+                    </li>
+                </ul>
+            )}
+        </section>
+    );
+};
 
 interface SliderProps {
     label: string;
