@@ -19,6 +19,8 @@ const defaultParams: LightGraphParams = {
 
 type Mode = "camera" | "video";
 
+// ====== COMPONENTE PRINCIPAL ======
+
 const LightGraphIsland: React.FC = () => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -104,6 +106,23 @@ const LightGraphIsland: React.FC = () => {
 
     const handleStart = async () => {
         if (!processorRef.current) return;
+
+        // � Si ya está activa la fuente => detener
+        if (isLive) {
+            // Si está grabando, detenemos también
+            if (isRecording) {
+                if (recorderRef.current) {
+                    recorderRef.current.stop();
+                    recorderRef.current = null;
+                }
+                setIsRecording(false);
+            }
+
+            processorRef.current.stop();
+            setIsLive(false);
+            setStatus("Fuente detenida.");
+            return;
+        }
 
         try {
             if (mode === "camera") {
@@ -377,6 +396,8 @@ const LightGraphIsland: React.FC = () => {
         setIsLive(false); // cambiamos de fuente => reset live
     };
 
+    // ====== RENDER ======
+
     return (
         <section className="min-h-screen bg-slate-950 text-slate-100">
             <div className="mx-auto w-full max-w-6xl px-4 py-6 lg:py-8">
@@ -385,9 +406,7 @@ const LightGraphIsland: React.FC = () => {
                 <div className="lg-layout-main">
                     <div className="flex flex-1 flex-col gap-3">
                         <PreviewArea
-                            // @ts-ignore
                             videoRef={videoRef}
-                            // @ts-ignore
                             canvasRef={canvasRef}
                             mode={mode}
                             status={status}
@@ -807,9 +826,7 @@ const DesktopControlsPanel: React.FC<DesktopControlsPanelProps> = ({
                         className="block w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950/60 text-xs text-slate-200 file:mr-3 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-slate-100 hover:file:bg-slate-700"
                     />
                     {videoFileName && (
-                        <p className="truncate text-xs text-slate-400">
-                            {videoFileName}
-                        </p>
+                        <p className="truncate text-xs text-slate-400">{videoFileName}</p>
                     )}
                 </div>
             )}
@@ -821,7 +838,13 @@ const DesktopControlsPanel: React.FC<DesktopControlsPanelProps> = ({
                 className="inline-flex flex-1 items-center justify-center rounded-full bg-sky-500 px-4 py-2 text-sm font-medium text-slate-950 shadow hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-sky-900/40"
                 onClick={onStart}
             >
-                {mode === "camera" ? "Iniciar cámara" : "Iniciar vídeo"}
+                {isLive
+                    ? mode === "camera"
+                        ? "Detener cámara"
+                        : "Detener vídeo"
+                    : mode === "camera"
+                        ? "Iniciar cámara"
+                        : "Iniciar vídeo"}
             </button>
 
             {/* Botón de grabar solo cuando hay fuente activa */}
@@ -923,9 +946,8 @@ interface FullscreenBottomSheetProps {
 }
 
 /**
- * IMPORTANTE:
- * Este sheet se renderiza DENTRO de `videoWrapper`, pero usa `fixed` para anclarse al viewport
- * y solo aparece en fullscreen.
+ * Sheet en fullscreen con drag suave vertical (tipo iOS),
+ * también en móvil. Se ancla al viewport y respeta safe-area.
  */
 const FullscreenBottomSheet: React.FC<FullscreenBottomSheetProps> = ({
     isFullscreen,
@@ -934,10 +956,26 @@ const FullscreenBottomSheet: React.FC<FullscreenBottomSheetProps> = ({
     updateParam,
     onTogglePanel,
 }) => {
+    const [dragOffset, setDragOffset] = useState(100); // 0 = abierto, 100 = cerrado
+    const [isDragging, setIsDragging] = useState(false);
+    const sheetRef = useRef<HTMLDivElement | null>(null);
+
+    // Sincronizar estado interno con `panelOpen`
+    useEffect(() => {
+        setDragOffset(panelOpen ? 0 : 100);
+    }, [panelOpen]);
+
     if (!isFullscreen) return null;
 
     const startDrag = (startY: number) => {
-        const THRESHOLD = 40;
+        setIsDragging(true);
+
+        const sheetEl = sheetRef.current;
+        const sheetRect = sheetEl?.getBoundingClientRect();
+        const maxHeight = sheetRect?.height || window.innerHeight * 0.55;
+
+        const startOffset = dragOffset;
+        let currentOffset = dragOffset;
 
         const getClientY = (ev: MouseEvent | TouchEvent): number => {
             if ("touches" in ev && ev.touches.length > 0) {
@@ -950,33 +988,47 @@ const FullscreenBottomSheet: React.FC<FullscreenBottomSheetProps> = ({
         };
 
         const onMove = (ev: MouseEvent | TouchEvent) => {
-            // Evitamos que arrastre toda la página
             if ("cancelable" in ev && ev.cancelable) {
-                ev.preventDefault();
+                ev.preventDefault(); // no arrastrar toda la página
             }
             const y = getClientY(ev);
-            const delta = y - startY;
+            const delta = y - startY; // >0 hacia abajo
 
-            // Si se arrastra hacia abajo más de X px => colapsamos
-            if (delta > THRESHOLD) {
-                onTogglePanel();
-                cleanup();
-            }
+            let nextOffset = startOffset + (delta / maxHeight) * 100;
+            if (nextOffset < 0) nextOffset = 0;
+            if (nextOffset > 100) nextOffset = 100;
+
+            currentOffset = nextOffset;
+            setDragOffset(nextOffset);
         };
 
         const cleanup = () => {
             window.removeEventListener("mousemove", onMove as any);
-            window.removeEventListener("mouseup", cleanup);
+            window.removeEventListener("mouseup", onUp);
             window.removeEventListener("touchmove", onMove as any);
-            window.removeEventListener("touchend", cleanup);
-            window.removeEventListener("touchcancel", cleanup);
+            window.removeEventListener("touchend", onUp);
+            window.removeEventListener("touchcancel", onUp);
+        };
+
+        const onUp = () => {
+            setIsDragging(false);
+
+            // Si más de la mitad hacia abajo => cerrar
+            if (currentOffset > 50 && panelOpen) {
+                onTogglePanel();
+            } else {
+                // Volver suavemente a abierto
+                setDragOffset(0);
+            }
+
+            cleanup();
         };
 
         window.addEventListener("mousemove", onMove as any);
-        window.addEventListener("mouseup", cleanup);
+        window.addEventListener("mouseup", onUp);
         window.addEventListener("touchmove", onMove as any, { passive: false });
-        window.addEventListener("touchend", cleanup);
-        window.addEventListener("touchcancel", cleanup);
+        window.addEventListener("touchend", onUp);
+        window.addEventListener("touchcancel", onUp);
     };
 
     const handleMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -990,12 +1042,19 @@ const FullscreenBottomSheet: React.FC<FullscreenBottomSheetProps> = ({
         startDrag(e.touches[0].clientY);
     };
 
+    const translateY = panelOpen ? dragOffset : 100;
+
     return (
         <section
+            ref={sheetRef}
             className={
-                "fixed inset-x-0 bottom-0 z-40 max-h-[55vh] transform bg-slate-900/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_40px_rgba(0,0,0,0.7)] backdrop-blur transition-transform duration-300 " +
-                (panelOpen ? "translate-y-0" : "translate-y-full")
+                "fixed inset-x-0 bottom-0 z-40 max-h-[55vh] bg-slate-900/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_40px_rgba(0,0,0,0.7)] backdrop-blur " +
+                "transition-transform duration-300"
             }
+            style={{
+                transform: `translateY(${translateY}%)`,
+                transitionDuration: isDragging ? "0ms" : "300ms",
+            }}
         >
             <div className="mx-auto flex max-w-3xl flex-col gap-4 overflow-y-auto px-4 pt-3 pb-4">
                 {/* Barra tipo iOS: deslizar hacia abajo para cerrar */}
