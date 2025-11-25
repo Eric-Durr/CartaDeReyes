@@ -464,8 +464,8 @@ const HeaderBar: React.FC = () => (
 );
 
 interface PreviewAreaProps {
-    videoRef: React.RefObject<HTMLVideoElement> | null;
-    canvasRef: React.RefObject<HTMLCanvasElement> | null;
+    videoRef: React.RefObject<HTMLVideoElement>;
+    canvasRef: React.RefObject<HTMLCanvasElement>;
     mode: Mode;
     status: string;
     isRecording: boolean;
@@ -587,10 +587,21 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                 id="videoWrapper"
                 ref={wrapperRef}
                 style={wrapperStyle}
-                className="relative max-w-full overflow-visible rounded-xl bg-black shadow-xl ring-1 ring-slate-800"
+                className={
+                    "relative max-w-full overflow-visible rounded-xl bg-black shadow-xl ring-1 ring-slate-800" +
+                    (isFullscreen
+                        ? " h-screen w-screen max-w-none rounded-none ring-0 shadow-none"
+                        : "")
+                }
             >
-                {/* Contenedor 16:9 */}
-                <div className="relative w-full pb-[56.25%]">
+                {/* Contenedor: 16:9 en modo normal, pantalla completa ocupa todo */}
+                <div
+                    className={
+                        isFullscreen
+                            ? "relative w-full h-full"
+                            : "relative w-full pb-[56.25%]"
+                    }
+                >
                     {/* En mobile evitamos display:none para no romper autoplay */}
                     <video
                         id="videoInput"
@@ -644,14 +655,14 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                 )}
 
                 {/* Botón fullscreen esquina inferior derecha */}
-                {<button
+                <button
                     type="button"
                     className="absolute bottom-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-lg text-slate-100 backdrop-blur hover:bg-black/80"
                     onClick={onToggleFullscreen}
                     aria-label="Pantalla completa"
                 >
                     ⤢
-                </button>}
+                </button>
 
                 {/* Botón para abrir/cerrar panel en fullscreen */}
                 {isFullscreen && (
@@ -665,7 +676,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                     </button>
                 )}
 
-                {/* ---------- Handle de resize camuflado (solo escritorio) ---------- */}
+                {/* Handle de resize (solo escritorio, casi invisible) */}
                 {!isFullscreen && (
                     <div
                         className="pointer-events-auto absolute -bottom-1 -right-1 z-30 h-6 w-6 cursor-se-resize md:flex opacity-0"
@@ -675,7 +686,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                     </div>
                 )}
 
-                {/* Bottom sheet DENTRO del wrapper (funciona también en fullscreen nativo) */}
+                {/* Bottom sheet dentro del wrapper para que funcione en fullscreen nativo */}
                 <FullscreenBottomSheet
                     isFullscreen={isFullscreen}
                     panelOpen={panelOpen}
