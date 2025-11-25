@@ -406,7 +406,9 @@ const LightGraphIsland: React.FC = () => {
                 <div className="lg-layout-main">
                     <div className="flex flex-1 flex-col gap-3">
                         <PreviewArea
+                            // @ts-ignore
                             videoRef={videoRef}
+                            // @ts-ignore
                             canvasRef={canvasRef}
                             mode={mode}
                             status={status}
@@ -641,6 +643,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                     {/* En mobile evitamos display:none para no romper autoplay */}
                     <video
                         id="videoInput"
+
                         ref={videoRef}
                         className="absolute inset-0 h-full w-full opacity-0 pointer-events-none"
                         autoPlay
