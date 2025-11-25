@@ -19,11 +19,9 @@ const defaultParams: LightGraphParams = {
 
 type Mode = "camera" | "video";
 
-// ====== COMPONENTE PRINCIPAL ======
-
 const LightGraphIsland: React.FC = () => {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const processorRef =
         useRef<ReturnType<typeof createLightGraphProcessor> | null>(null);
     const paramsRef = useRef<LightGraphParams>(defaultParams);
@@ -379,8 +377,6 @@ const LightGraphIsland: React.FC = () => {
         setIsLive(false); // cambiamos de fuente => reset live
     };
 
-    // ====== RENDER ======
-
     return (
         <section className="min-h-screen bg-slate-950 text-slate-100">
             <div className="mx-auto w-full max-w-6xl px-4 py-6 lg:py-8">
@@ -505,6 +501,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
     updateParam,
 }) => {
     const wrapperRef = useRef<HTMLDivElement | null>(null);
+    const [aspectPercent, setAspectPercent] = useState<number | null>(null);
 
     type Edge = "left" | "right";
 
@@ -572,10 +569,31 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
         },
     });
 
-    const wrapperStyle: React.CSSProperties =
-        !isFullscreen && previewWidth
+    // Wrapper: en fullscreen usamos viewport dinámico para respetar el marco del navegador móvil
+    const wrapperStyle: React.CSSProperties = isFullscreen
+        ? { width: "100vw", height: "100dvh" }
+        : previewWidth
             ? { width: `${previewWidth}px` }
             : { width: "100%" };
+
+    // Contenedor interno: 16:9 por defecto, pero adaptamos al ratio real del vídeo si lo conocemos
+    const innerStyle: React.CSSProperties = isFullscreen
+        ? {}
+        : {
+            paddingBottom: `${aspectPercent ?? 56.25}%`,
+        };
+
+    const handleLoadedMetadata = () => {
+        const video = videoRef.current;
+        if (!video || !video.videoWidth || !video.videoHeight) return;
+        const ratio = (video.videoHeight / video.videoWidth) * 100;
+        setAspectPercent(ratio);
+    };
+
+    // Bottom con safe-area para botones en fullscreen
+    const fullscreenBottomStyle: React.CSSProperties | undefined = isFullscreen
+        ? { bottom: "calc(1.5rem + env(safe-area-inset-bottom))" }
+        : undefined;
 
     return (
         <div className="flex flex-1 flex-col items-center gap-3">
@@ -588,19 +606,18 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                 ref={wrapperRef}
                 style={wrapperStyle}
                 className={
-                    "relative max-w-full overflow-visible rounded-xl bg-black shadow-xl ring-1 ring-slate-800" +
+                    "relative overflow-visible bg-black shadow-xl ring-1 ring-slate-800 " +
                     (isFullscreen
-                        ? " h-screen w-screen max-w-none rounded-none ring-0 shadow-none"
-                        : "")
+                        ? "max-w-none rounded-none ring-0 shadow-none"
+                        : "max-w-full rounded-xl")
                 }
             >
-                {/* Contenedor: 16:9 en modo normal, pantalla completa ocupa todo */}
+                {/* Contenedor que mantiene el ratio */}
                 <div
                     className={
-                        isFullscreen
-                            ? "relative w-full h-full"
-                            : "relative w-full pb-[56.25%]"
+                        isFullscreen ? "relative w-full h-full" : "relative w-full"
                     }
+                    style={innerStyle}
                 >
                     {/* En mobile evitamos display:none para no romper autoplay */}
                     <video
@@ -610,6 +627,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                         autoPlay
                         playsInline
                         muted
+                        onLoadedMetadata={handleLoadedMetadata}
                     />
                     <canvas
                         id="canvasOutput"
@@ -639,7 +657,8 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                 {isLive && (
                     <button
                         type="button"
-                        className="absolute bottom-4 left-1/2 z-20 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full border-[3px] border-slate-100/80 bg-black/20 backdrop-blur hover:bg-black/40"
+                        className="absolute left-1/2 z-20 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full border-[3px] border-slate-100/80 bg-black/20 backdrop-blur hover:bg-black/40"
+                        style={fullscreenBottomStyle ?? { bottom: "1rem" }}
                         onClick={isRecording ? onStopRecording : onStartRecording}
                         aria-label={isRecording ? "Parar grabación" : "Iniciar grabación"}
                     >
@@ -657,7 +676,8 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                 {/* Botón fullscreen esquina inferior derecha */}
                 <button
                     type="button"
-                    className="absolute bottom-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-lg text-slate-100 backdrop-blur hover:bg-black/80"
+                    className="absolute right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-lg text-slate-100 backdrop-blur hover:bg-black/80"
+                    style={fullscreenBottomStyle ?? { bottom: "1rem" }}
                     onClick={onToggleFullscreen}
                     aria-label="Pantalla completa"
                 >
@@ -668,7 +688,8 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                 {isFullscreen && (
                     <button
                         type="button"
-                        className="absolute bottom-4 right-16 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-lg text-slate-100 backdrop-blur hover:bg-black/80"
+                        className="absolute right-16 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-lg text-slate-100 backdrop-blur hover:bg-black/80"
+                        style={fullscreenBottomStyle ?? { bottom: "1rem" }}
                         onClick={onTogglePanel}
                         aria-label={panelOpen ? "Ocultar ajustes" : "Mostrar ajustes"}
                     >
@@ -676,7 +697,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                     </button>
                 )}
 
-                {/* Handle de resize (solo escritorio, casi invisible) */}
+                {/* Handle de resize (solo escritorio) */}
                 {!isFullscreen && (
                     <div
                         className="pointer-events-auto absolute -bottom-1 -right-1 z-30 h-6 w-6 cursor-se-resize md:flex opacity-0"
@@ -686,7 +707,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
                     </div>
                 )}
 
-                {/* Bottom sheet dentro del wrapper para que funcione en fullscreen nativo */}
+                {/* Bottom sheet dentro del wrapper para fullscreen */}
                 <FullscreenBottomSheet
                     isFullscreen={isFullscreen}
                     panelOpen={panelOpen}
@@ -786,7 +807,9 @@ const DesktopControlsPanel: React.FC<DesktopControlsPanelProps> = ({
                         className="block w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950/60 text-xs text-slate-200 file:mr-3 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-slate-100 hover:file:bg-slate-700"
                     />
                     {videoFileName && (
-                        <p className="truncate text-xs text-slate-400">{videoFileName}</p>
+                        <p className="truncate text-xs text-slate-400">
+                            {videoFileName}
+                        </p>
                     )}
                 </div>
             )}
@@ -900,10 +923,9 @@ interface FullscreenBottomSheetProps {
 }
 
 /**
- * Bottom sheet deslizable en fullscreen:
- * - Se renderiza dentro de `videoWrapper`
- * - Sigue al dedo mientras arrastras la barra superior
- * - Al soltar, encaja arriba (abierto) o abajo (cerrado)
+ * IMPORTANTE:
+ * Este sheet se renderiza DENTRO de `videoWrapper`, pero usa `fixed` para anclarse al viewport
+ * y solo aparece en fullscreen.
  */
 const FullscreenBottomSheet: React.FC<FullscreenBottomSheetProps> = ({
     isFullscreen,
@@ -912,25 +934,10 @@ const FullscreenBottomSheet: React.FC<FullscreenBottomSheetProps> = ({
     updateParam,
     onTogglePanel,
 }) => {
-    const [dragOffset, setDragOffset] = useState(0);
-    const [isDragging, setIsDragging] = useState(false);
-
-    useEffect(() => {
-        // Si se cierra desde fuera, reseteamos drag
-        if (!panelOpen) {
-            setDragOffset(0);
-            setIsDragging(false);
-        }
-    }, [panelOpen]);
-
     if (!isFullscreen) return null;
 
     const startDrag = (startY: number) => {
-        if (!panelOpen) return; // solo arrastramos cuando está abierto
-        setIsDragging(true);
-        let currentOffset = 0;
-        const MAX_OFFSET = window.innerHeight * 0.55; // coincide con max-h ~55vh
-        const THRESHOLD = 72; // píxeles para decidir si cerramos
+        const THRESHOLD = 40;
 
         const getClientY = (ev: MouseEvent | TouchEvent): number => {
             if ("touches" in ev && ev.touches.length > 0) {
@@ -943,37 +950,33 @@ const FullscreenBottomSheet: React.FC<FullscreenBottomSheetProps> = ({
         };
 
         const onMove = (ev: MouseEvent | TouchEvent) => {
+            // Evitamos que arrastre toda la página
+            if ("cancelable" in ev && ev.cancelable) {
+                ev.preventDefault();
+            }
             const y = getClientY(ev);
             const delta = y - startY;
-            const clamped = Math.max(0, Math.min(delta, MAX_OFFSET));
-            currentOffset = clamped;
-            setDragOffset(clamped);
-        };
 
-        const onUp = () => {
-            window.removeEventListener("mousemove", onMove as any);
-            window.removeEventListener("mouseup", onUp);
-            window.removeEventListener("touchmove", onMove as any);
-            window.removeEventListener("touchend", onUp);
-            window.removeEventListener("touchcancel", onUp);
-
-            setIsDragging(false);
-
-            if (currentOffset > THRESHOLD) {
-                // cerrar
-                setDragOffset(0);
+            // Si se arrastra hacia abajo más de X px => colapsamos
+            if (delta > THRESHOLD) {
                 onTogglePanel();
-            } else {
-                // volver suavemente a posición abierta
-                setDragOffset(0);
+                cleanup();
             }
         };
 
+        const cleanup = () => {
+            window.removeEventListener("mousemove", onMove as any);
+            window.removeEventListener("mouseup", cleanup);
+            window.removeEventListener("touchmove", onMove as any);
+            window.removeEventListener("touchend", cleanup);
+            window.removeEventListener("touchcancel", cleanup);
+        };
+
         window.addEventListener("mousemove", onMove as any);
-        window.addEventListener("mouseup", onUp);
+        window.addEventListener("mouseup", cleanup);
         window.addEventListener("touchmove", onMove as any, { passive: false });
-        window.addEventListener("touchend", onUp);
-        window.addEventListener("touchcancel", onUp);
+        window.addEventListener("touchend", cleanup);
+        window.addEventListener("touchcancel", cleanup);
     };
 
     const handleMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -987,20 +990,12 @@ const FullscreenBottomSheet: React.FC<FullscreenBottomSheetProps> = ({
         startDrag(e.touches[0].clientY);
     };
 
-    const sheetStyle: React.CSSProperties = {
-        transform: !panelOpen
-            ? "translateY(100%)"
-            : isDragging
-                ? `translateY(${dragOffset}px)`
-                : "translateY(0)",
-        transition: isDragging ? "none" : "transform 0.25s ease-out",
-        willChange: "transform",
-    };
-
     return (
         <section
-            className="fixed inset-x-0 bottom-0 z-40 max-h-[55vh] bg-slate-900/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_40px_rgba(0,0,0,0.7)] backdrop-blur"
-            style={sheetStyle}
+            className={
+                "fixed inset-x-0 bottom-0 z-40 max-h-[55vh] transform bg-slate-900/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_40px_rgba(0,0,0,0.7)] backdrop-blur transition-transform duration-300 " +
+                (panelOpen ? "translate-y-0" : "translate-y-full")
+            }
         >
             <div className="mx-auto flex max-w-3xl flex-col gap-4 overflow-y-auto px-4 pt-3 pb-4">
                 {/* Barra tipo iOS: deslizar hacia abajo para cerrar */}
